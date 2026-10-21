@@ -11,7 +11,7 @@ next-env.d.ts
 !.env.example
 
 # arquivos enviados pelo painel (imagens de produtos) e backups
-storage/
+/storage/
 backups/
 
 # testes / logs / sistema
