@@ -1,0 +1,41 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1791419221740,
+      "tag": "0000_schema_inicial",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1791747233699,
+      "tag": "0001_colecionaveis_e_recuperacao_senha",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791946290696,
+      "tag": "0002_subcategorias_e_tipo",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792038339035,
+      "tag": "0003_limpeza_demo_antigo_e_padroes",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792275715773,
+      "tag": "0004_contatos_do_dono",
+      "breakpoints": true
+    }
+  ]
+}

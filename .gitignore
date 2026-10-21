@@ -1,0 +1,20 @@
+# dependências e build
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+
+# segredos e configuração local
+.env
+.env.*
+!.env.example
+
+# arquivos enviados pelo painel (imagens de produtos) e backups
+storage/
+backups/
+
+# testes / logs / sistema
+coverage/
+npm-debug.log*
+.DS_Store

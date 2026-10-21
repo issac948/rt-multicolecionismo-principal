@@ -1,0 +1,522 @@
+@import "tailwindcss";
+@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource/lobster/latin-400.css";
+@import "@fontsource/lobster/latin-ext-400.css";
+
+/*
+ * Identidade visual RT Multicolecionismo.
+ * As cores saem da logo oficial: preto (círculo), dourado (aro e sol), vermelho (carro e faixa) e branco (contornos).
+ * Todas as cores e fontes ficam neste bloco: para ajustar o visual da loja inteira, altere somente aqui.
+ */
+@theme {
+  --color-paper: #f6f4ef;
+  --color-panel: #ece9e1;
+  --color-ink: #101010;
+  --color-ink-soft: #4b4742;
+  --color-line: #dad5c9;
+  --color-night: #080808;
+  --color-night-soft: #171717;
+  --color-signal: #f1b732;
+  --color-signal-deep: #d99d12;
+  --color-enamel: #db2928;
+  --color-enamel-deep: #b11f1e;
+  --color-enamel-soft: #fbe5e4;
+  --color-link: #a81e1d;
+  --color-info-soft: #ece9e1;
+  --color-ok: #1f7a4d;
+  --color-ok-soft: #dff1e7;
+  --color-warn-soft: #fff0c2;
+
+  --font-sans: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+  /* Letra "de placa" parecida com a da logo; usada só no nome da loja e em destaques curtos. */
+  --font-script: "Lobster", "Brush Script MT", cursive;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.6;
+    font-stretch: 100%;
+  }
+  /* Títulos condensados e pesados, como letreiro. */
+  h1,
+  h2,
+  h3 {
+    font-stretch: 76%;
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.005em;
+  }
+  h1 {
+    font-size: clamp(2rem, 5.5vw, 3.25rem);
+  }
+  h2 {
+    font-size: clamp(1.5rem, 3.4vw, 2.1rem);
+  }
+  h3 {
+    font-size: 1.25rem;
+  }
+  a {
+    color: var(--color-link);
+  }
+  :focus-visible {
+    outline: 3px solid var(--color-ink);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+  /* Sobre fundo escuro o foco precisa ser claro. */
+  .on-dark :focus-visible {
+    outline-color: var(--color-signal);
+  }
+  ::selection {
+    background: var(--color-signal);
+    color: var(--color-ink);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    max-width: 74rem;
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  .skip-link {
+    position: absolute;
+    left: 0.5rem;
+    top: -4rem;
+    z-index: 100;
+    background: var(--color-ink);
+    color: #fff;
+    padding: 0.6rem 1rem;
+    border-radius: 4px;
+  }
+  .skip-link:focus {
+    top: 0.5rem;
+  }
+
+  /* ----- Botões ----- */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    font-weight: 700;
+    font-size: 1rem;
+    line-height: 1.2;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.12s, border-color 0.12s;
+  }
+  .btn:disabled,
+  .btn[aria-disabled="true"] {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+  .btn-primary {
+    background: var(--color-signal);
+    color: var(--color-ink);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--color-signal-deep);
+  }
+  .btn-dark {
+    background: var(--color-night);
+    color: #fff;
+  }
+  .btn-dark:hover:not(:disabled) {
+    background: #2a2a2a;
+  }
+  /* Botão de contorno claro, para usar sobre fundo preto. */
+  .btn-light {
+    background: transparent;
+    color: #fff;
+    border-color: rgb(255 255 255 / 0.6);
+  }
+  .btn-light:hover:not(:disabled) {
+    background: rgb(255 255 255 / 0.12);
+    border-color: #fff;
+  }
+  .btn-outline {
+    background: transparent;
+    color: var(--color-ink);
+    border-color: var(--color-ink);
+  }
+  .btn-outline:hover:not(:disabled) {
+    background: var(--color-panel);
+  }
+  .btn-danger {
+    background: var(--color-enamel);
+    color: #fff;
+  }
+  .btn-danger:hover:not(:disabled) {
+    background: var(--color-enamel-deep);
+  }
+  .btn-link {
+    background: none;
+    border: 0;
+    padding: 0;
+    min-height: 0;
+    color: var(--color-link);
+    font-weight: 600;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .btn-sm {
+    min-height: 2.25rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.9rem;
+  }
+  .btn-block {
+    width: 100%;
+  }
+
+  /* ----- Formulários ----- */
+  .label {
+    display: block;
+    font-weight: 600;
+    font-size: 0.95rem;
+    margin-bottom: 0.3rem;
+  }
+  .hint {
+    font-size: 0.875rem;
+    color: var(--color-ink-soft);
+    margin-top: 0.25rem;
+  }
+  .field-error {
+    font-size: 0.875rem;
+    color: var(--color-enamel-deep);
+    font-weight: 600;
+    margin-top: 0.25rem;
+  }
+  .input,
+  .select,
+  .textarea {
+    width: 100%;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.75rem;
+    background: #fff;
+    border: 1.5px solid #9aa3ae;
+    border-radius: 4px;
+    color: var(--color-ink);
+    font: inherit;
+  }
+  .textarea {
+    min-height: 7rem;
+    resize: vertical;
+  }
+  .input:hover,
+  .select:hover,
+  .textarea:hover {
+    border-color: var(--color-ink-soft);
+  }
+  .input[aria-invalid="true"],
+  .select[aria-invalid="true"],
+  .textarea[aria-invalid="true"] {
+    border-color: var(--color-enamel);
+    background: var(--color-enamel-soft);
+  }
+  .checkbox {
+    width: 1.25rem;
+    height: 1.25rem;
+    accent-color: var(--color-ink);
+    flex: none;
+  }
+
+  /* ----- Avisos e etiquetas de status ----- */
+  .alert {
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+    border-left: 5px solid;
+    font-size: 0.95rem;
+  }
+  .alert-error {
+    background: var(--color-enamel-soft);
+    border-color: var(--color-enamel);
+  }
+  .alert-ok {
+    background: var(--color-ok-soft);
+    border-color: var(--color-ok);
+  }
+  .alert-info {
+    background: var(--color-info-soft);
+    border-color: var(--color-ink-soft);
+  }
+  .alert-warn {
+    background: var(--color-warn-soft);
+    border-color: var(--color-signal-deep);
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.1rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .badge-neutral {
+    background: var(--color-panel);
+    color: var(--color-ink);
+  }
+  .badge-info {
+    background: var(--color-night);
+    color: var(--color-signal);
+  }
+  .badge-success {
+    background: var(--color-ok-soft);
+    color: #14573a;
+  }
+  .badge-warning {
+    background: var(--color-warn-soft);
+    color: #6b4f00;
+  }
+  .badge-danger {
+    background: var(--color-enamel-soft);
+    color: #8f1b1b;
+  }
+  /* Etiquetas do colecionável (lacrado/solto, marca, escala). */
+  .badge-sealed {
+    background: var(--color-signal);
+    color: var(--color-ink);
+  }
+
+  /*
+   * A etiqueta de preço: o único elemento "de assinatura" do visual.
+   * Ponta à esquerda e um furinho, como a etiqueta pendurada num carrinho.
+   */
+  .price-tag {
+    position: relative;
+    display: inline-flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.1rem 0.5rem;
+    padding: 0.3rem 0.85rem 0.3rem 1.7rem;
+    background: var(--color-signal);
+    color: var(--color-ink);
+    font-weight: 800;
+    font-stretch: 85%;
+    line-height: 1.15;
+    clip-path: polygon(0.8rem 0, 100% 0, 100% 100%, 0.8rem 100%, 0 50%);
+  }
+  .price-tag::before {
+    content: "";
+    position: absolute;
+    left: 0.7rem;
+    top: 50%;
+    width: 0.4rem;
+    height: 0.4rem;
+    margin-top: -0.2rem;
+    border-radius: 50%;
+    background: var(--color-night);
+  }
+  .price-tag-sale {
+    background: var(--color-enamel);
+    color: #fff;
+  }
+  .price-tag-sale::before {
+    background: #fff;
+  }
+  .price-tag-lg {
+    font-size: 1.75rem;
+    padding: 0.4rem 1.1rem 0.4rem 2rem;
+    clip-path: polygon(1rem 0, 100% 0, 100% 100%, 1rem 100%, 0 50%);
+  }
+  .price-tag-lg::before {
+    left: 0.85rem;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-top: -0.25rem;
+  }
+  .price-old {
+    font-size: 0.85em;
+    font-weight: 500;
+    text-decoration: line-through;
+    opacity: 0.8;
+  }
+
+  /* ----- Produto na listagem: painel liso, sem cartão com sombra ----- */
+  .product-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    color: inherit;
+    text-decoration: none;
+  }
+  .product-card__media {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    overflow: hidden;
+    background: var(--color-panel);
+    border-radius: 6px;
+  }
+  .product-card__media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.25s;
+  }
+  .product-card:hover .product-card__media img {
+    transform: scale(1.03);
+  }
+
+  /* Estado sem foto: preto e dourado da marca, com a faixa quadriculada embaixo (nada de imagem emprestada de outro produto). */
+  .no-photo {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    height: 100%;
+    background:
+      radial-gradient(ellipse at 50% 40%, rgb(241 183 50 / 0.16), transparent 62%),
+      var(--color-night);
+    color: var(--color-signal);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .no-photo::after {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 0.5rem;
+    background-color: #f8f8f8;
+    background-image: repeating-conic-gradient(var(--color-night) 0 25%, transparent 0 50%);
+    background-size: 0.5rem 0.5rem;
+    opacity: 0.55;
+  }
+  .no-photo-compact::after {
+    display: none;
+  }
+  .product-card:hover .product-card__name {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+
+  /* ----- Tabelas do painel ----- */
+  .table-wrap {
+    /* position: relative prende dentro da rolagem os itens "sr-only" (position:absolute) das tabelas;
+       sem isso eles esticam a largura da página inteira no celular. */
+    position: relative;
+    overflow-x: auto;
+    background: #fff;
+    border-radius: 6px;
+  }
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+  .table th {
+    text-align: left;
+    font-weight: 700;
+    padding: 0.7rem 0.9rem;
+    background: var(--color-panel);
+    white-space: nowrap;
+  }
+  .table td {
+    padding: 0.7rem 0.9rem;
+    border-top: 1px solid var(--color-line);
+    vertical-align: middle;
+  }
+  .table tbody tr:hover {
+    background: #faf8f3;
+  }
+
+  .panel {
+    background: #fff;
+    border-radius: 6px;
+    padding: 1.25rem;
+  }
+
+  .prose-simple p + p {
+    margin-top: 0.9rem;
+  }
+  .prose-simple {
+    max-width: 65ch;
+  }
+
+  /* ----- Elementos da marca ----- */
+
+  /* Faixa quadriculada (as bandeiras da logo). Usada como divisória entre o topo/rodapé e o conteúdo. */
+  .checker {
+    height: 0.75rem;
+    background-color: #f8f8f8;
+    background-image: repeating-conic-gradient(var(--color-night) 0 25%, transparent 0 50%);
+    background-size: 0.75rem 0.75rem;
+  }
+  .checker-gold {
+    background-color: var(--color-signal);
+  }
+
+  /* Fundo da abertura da home: preto com o "sol" e os raios da logo. */
+  .sunburst {
+    position: relative;
+    isolation: isolate;
+    background-color: var(--color-night);
+    color: #fff;
+    overflow: hidden;
+  }
+  .sunburst::before {
+    content: "";
+    position: absolute;
+    inset: -20%;
+    z-index: -1;
+    background:
+      radial-gradient(circle at 75% 55%, rgb(241 183 50 / 0.28), transparent 42%),
+      repeating-conic-gradient(from 8deg at 75% 55%, rgb(241 183 50 / 0.11) 0 3deg, transparent 3deg 11deg);
+    mask-image: radial-gradient(circle at 75% 55%, #000 10%, transparent 72%);
+    -webkit-mask-image: radial-gradient(circle at 75% 55%, #000 10%, transparent 72%);
+  }
+  .brand-script {
+    font-family: var(--font-script);
+    font-weight: 400;
+    letter-spacing: 0.01em;
+  }
+  .eyebrow {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-signal);
+  }
+  /* Título de seção com filete dourado, no estilo da faixa da logo. */
+  .section-title {
+    display: inline-block;
+    padding-bottom: 0.35rem;
+    border-bottom: 4px solid var(--color-signal);
+  }
+}
