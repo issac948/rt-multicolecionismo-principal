@@ -4,11 +4,11 @@ import { assertRole } from "@/server/auth/authorize";
 import { AppError, AuthError } from "@/server/errors";
 import { isSameOrigin } from "@/server/security/origin";
 import { checkRateLimit } from "@/server/security/rate-limit";
-import { MAX_UPLOAD_BYTES, saveLogoImage, saveProductImage } from "@/server/storage/images";
+import { MAX_UPLOAD_BYTES, saveEventImage, saveLogoImage, saveProductImage } from "@/server/storage/images";
 
 export const dynamic = "force-dynamic";
 
-/** Upload de imagens pelo painel (fotos de produto e logo). Somente ADMIN. */
+/** Upload de imagens pelo painel (fotos de produto, de evento e logo). Somente ADMIN. */
 export async function POST(request: Request) {
   try {
     // Proteção CSRF: a requisição precisa vir do próprio site.
@@ -32,9 +32,14 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    if (new URL(request.url).searchParams.get("kind") === "logo") {
+    const kind = new URL(request.url).searchParams.get("kind");
+    if (kind === "logo") {
       const logo = await saveLogoImage(buffer);
       return NextResponse.json({ key: logo.key, url: logo.url });
+    }
+    if (kind === "event") {
+      const photo = await saveEventImage(buffer);
+      return NextResponse.json({ key: photo.key, url: photo.url });
     }
 
     const image = await saveProductImage(buffer);

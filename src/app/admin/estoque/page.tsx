@@ -77,7 +77,7 @@ export default async function AdminStockPage({ searchParams }: { searchParams: P
             <p className="text-ink-soft">Nenhuma movimentação registrada ainda.</p>
           ) : (
             <div className="table-wrap border border-line">
-              <table className="table">
+              <table className="table table-cards">
                 <thead>
                   <tr>
                     <th scope="col">Quando</th>
@@ -95,8 +95,8 @@ export default async function AdminStockPage({ searchParams }: { searchParams: P
                 <tbody>
                   {history.rows.map((row) => (
                     <tr key={row.id}>
-                      <td className="whitespace-nowrap">{formatDateTime(row.createdAt)}</td>
-                      <td>
+                      <td data-label="Quando" className="whitespace-nowrap">{formatDateTime(row.createdAt)}</td>
+                      <td data-primary>
                         {row.productId ? (
                           <Link href={buildHref("/admin/estoque", { produto: row.productId })} className="text-ink">
                             {row.productName}
@@ -105,12 +105,12 @@ export default async function AdminStockPage({ searchParams }: { searchParams: P
                           row.productName
                         )}
                       </td>
-                      <td>{STOCK_MOVEMENT_LABEL[row.type]}</td>
-                      <td className={`text-right font-bold tabular-nums ${row.quantityChange < 0 ? "text-enamel-deep" : "text-ok"}`}>
+                      <td data-label="Tipo">{STOCK_MOVEMENT_LABEL[row.type]}</td>
+                      <td data-label="Mudança" className={`text-right font-bold tabular-nums ${row.quantityChange < 0 ? "text-enamel-deep" : "text-ok"}`}>
                         {row.quantityChange > 0 ? `+${row.quantityChange}` : row.quantityChange}
                       </td>
-                      <td className="text-right tabular-nums">{row.stockAfter}</td>
-                      <td className="text-sm text-ink-soft">
+                      <td data-label="Ficou" className="text-right tabular-nums">{row.stockAfter}</td>
+                      <td data-label="Motivo" className="text-sm text-ink-soft">
                         {row.reason ?? ""}
                         {row.userName ? ` · ${row.userName}` : ""}
                         {row.orderId ? (

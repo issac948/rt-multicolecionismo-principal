@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { Alert, Field } from "@/components/ui";
 import { useActionForm } from "@/components/use-action-form";
+import { uploadAdminImage } from "@/lib/client-upload";
 import { saveSettingsAction } from "@/server/actions/admin";
 import type { FormState } from "@/server/actions/shared";
 
@@ -87,22 +88,14 @@ export function SettingsForm({
     if (!file) return;
     setLogoBusy(true);
     setLogoError(null);
-    try {
-      const body = new FormData();
-      body.append("file", file);
-      const response = await fetch("/api/admin/upload?kind=logo", { method: "POST", body });
-      const json = (await response.json().catch(() => ({}))) as { key?: string; url?: string; error?: string };
-      if (!response.ok || !json.key || !json.url) {
-        setLogoError(json.error ?? "Não foi possível enviar o logo.");
-        return;
-      }
-      setLogoKey(json.key);
-      setLogoUrl(json.url);
-    } catch {
-      setLogoError("Falha de conexão ao enviar o logo.");
-    } finally {
-      setLogoBusy(false);
+    const result = await uploadAdminImage<{ key?: string; url?: string }>(file, "logo");
+    if (!result.ok || !result.data.key || !result.data.url) {
+      setLogoError(result.ok ? "Não foi possível enviar o logo." : result.error);
+    } else {
+      setLogoKey(result.data.key);
+      setLogoUrl(result.data.url);
     }
+    setLogoBusy(false);
   }
 
   return (
@@ -185,7 +178,7 @@ export function SettingsForm({
         <Field label="Horário de atendimento" htmlFor="businessHours" error={errors.businessHours} hint="Ex.: Respondo pelo WhatsApp todos os dias.">
           <input id="businessHours" name="businessHours" className="input" defaultValue={initial.businessHours} maxLength={200} />
         </Field>
-        <Field label="Aviso sobre feiras (opcional)" htmlFor="fairsNote" error={errors.fairsNote} hint="Aparece no rodapé e na página inicial. Não coloque datas ou locais que você não confirmou. Deixe em branco para não mostrar.">
+        <Field label="Aviso sobre eventos (opcional)" htmlFor="fairsNote" error={errors.fairsNote} hint="Aparece no rodapé, na página inicial e na página de eventos. As datas e os locais ficam em Eventos, no menu do painel; aqui não coloque datas que você não confirmou. Deixe em branco para não mostrar.">
           <input id="fairsNote" name="fairsNote" className="input" defaultValue={initial.fairsNote} maxLength={200} />
         </Field>
       </section>
@@ -366,7 +359,7 @@ export function SettingsForm({
           <input type="checkbox" className="checkbox" name="shippingPickupEnabled" defaultChecked={initial.shippingPickupEnabled} />
           <span>Permitir retirada em mãos (sem frete, combinada com você)</span>
         </label>
-        <Field label="Instruções de retirada" htmlFor="shippingPickupInstructions" error={pick(errors, "shippingPickupInstructions")} hint="Aparece para o cliente que escolher retirar. Ex.: combino o local e o dia pelo WhatsApp ou nas feiras.">
+        <Field label="Instruções de retirada" htmlFor="shippingPickupInstructions" error={pick(errors, "shippingPickupInstructions")} hint="Aparece para o cliente que escolher retirar. Ex.: combino o local e o dia pelo WhatsApp ou nos eventos.">
           <input id="shippingPickupInstructions" name="shippingPickupInstructions" className="input" defaultValue={initial.shippingPickupInstructions} maxLength={300} />
         </Field>
       </section>

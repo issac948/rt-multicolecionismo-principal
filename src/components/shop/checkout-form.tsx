@@ -124,6 +124,8 @@ export function CheckoutForm({
   const needsAddress = quoted ? method === "delivery" : (shipping?.requiresAddress ?? false);
   const totalCents = subtotalCents + (shipping?.priceCents ?? 0);
   const canSubmit = paymentReady && Boolean(shipping) && !pending;
+  // Número do último passo: entrega (1) + endereço ou retirada (se houver) + envio calculado (se houver) + observação.
+  const noteStep = 1 + (needsAddress || shipping ? 1 : 0) + (quoting ? 1 : 0) + 1;
 
   return (
     <form
@@ -335,7 +337,7 @@ export function CheckoutForm({
 
         {/* 3. Observação */}
         <div className="panel">
-          <h2 className="text-2xl">{quoted && method === "delivery" ? "4" : "3"}. Observação (opcional)</h2>
+          <h2 className="text-2xl">{noteStep}. Observação (opcional)</h2>
           <div className="mt-3">
             <Field label="Algo que a loja precisa saber?" htmlFor="note" error={errors.note}>
               <textarea id="note" name="note" className="textarea" maxLength={300} rows={3} />
@@ -386,7 +388,7 @@ export function CheckoutForm({
                 .
               </>
             ) : (
-              "Volte em breve ou procure a loja nas feiras."
+              "Volte em breve ou procure a loja nos eventos."
             )}
           </Alert>
         )}

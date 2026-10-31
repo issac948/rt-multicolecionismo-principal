@@ -6,7 +6,9 @@ import { ToggleProductActive } from "@/components/admin/product-row-actions";
 import { Alert, Badge, buildHref, EmptyState, Pagination } from "@/components/ui";
 import { effectivePriceCents, formatBRL, isOnSale } from "@/lib/money";
 import { requireAdminPage } from "@/server/auth/current-user";
-import { adminListProducts, type AdminProductStatus } from "@/server/services/products";
+import { listCategories } from "@/server/services/categories";
+import { adminListProducts, type AdminProductSort, type AdminProductStatus } from "@/server/services/products";
+import { UUID_RE } from "@/lib/schemas";
 import { fileUrl } from "@/server/storage";
 
 export const metadata: Metadata = { title: "Produtos" };
@@ -17,6 +19,13 @@ const STATUS_FILTERS: Array<{ value: AdminProductStatus; label: string }> = [
   { value: "inactive", label: "Rascunhos / ocultos" },
   { value: "low", label: "Estoque baixo" },
   { value: "out", label: "Sem estoque" },
+  { value: "nophoto", label: "Sem foto" },
+];
+
+const SORTS: Array<{ value: AdminProductSort; label: string }> = [
+  { value: "recentes", label: "Mais recentes" },
+  { value: "nome", label: "Nome (A a Z)" },
+  { value: "estoque", label: "Menor estoque" },
 ];
 
 const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
@@ -30,16 +39,26 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
   const status = STATUS_FILTERS.some((f) => f.value === statusParam) ? (statusParam as AdminProductStatus) : "all";
   const page = Math.max(1, Number.parseInt(first(query.pagina) ?? "1", 10) || 1);
 
-  const result = await adminListProducts({ q, status, page });
-  const hrefFor = (p: number) => buildHref("/admin/produtos", { q, status: status === "all" ? undefined : status, pagina: p > 1 ? p : undefined });
+  const categoryParam = first(query.categoria);
+  const categoryId = categoryParam && UUID_RE.test(categoryParam) ? categoryParam : "";
+  const sortParam = first(query.ordem);
+  const sort = SORTS.some((o) => o.value === sortParam) ? (sortParam as AdminProductSort) : "recentes";
+  const filtered = Boolean(q || status !== "all" || categoryId);
+
+  const [result, allCategories] = await Promise.all([adminListProducts({ q, status, categoryId: categoryId || undefined, sort, page }), listCategories()]);
+  const hrefFor = (p: number) =>
+    buildHref("/admin/produtos", { q, status: status === "all" ? undefined : status, categoria: categoryId || undefined, ordem: sort === "recentes" ? undefined : sort, pagina: p > 1 ? p : undefined });
 
   return (
     <>
       <AdminPageHeader
         title="Produtos"
-        description={`${result.total} ${result.total === 1 ? "produto" : "produtos"} ${q || status !== "all" ? "neste filtro" : result.total === 1 ? "cadastrado" : "cadastrados"}.`}
+        description={`${result.total} ${result.total === 1 ? "produto" : "produtos"} ${filtered ? "neste filtro" : result.total === 1 ? "cadastrado" : "cadastrados"}.`}
         actions={
           <>
+            <Link href="/admin/produtos/importar" className="btn btn-outline">
+              Importar planilha
+            </Link>
             <Link href="/admin/ia" className="btn btn-outline">
               Cadastrar com a IA
             </Link>
@@ -56,8 +75,8 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
         </Alert>
       )}
 
-      <form method="get" role="search" className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-56 flex-1">
+      <form method="get" role="search" className="mb-4 grid grid-cols-2 items-end gap-3 md:flex md:flex-wrap">
+        <div className="col-span-2 min-w-56 md:flex-1">
           <label htmlFor="q" className="label">
             Buscar produto
           </label>
@@ -75,30 +94,57 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
             ))}
           </select>
         </div>
-        <button type="submit" className="btn btn-dark">
-          <Search size={18} aria-hidden /> Filtrar
-        </button>
-        {(q || status !== "all") && (
-          <Link href="/admin/produtos" className="btn btn-outline">
-            Limpar
-          </Link>
-        )}
+        <div>
+          <label htmlFor="categoria" className="label">
+            Categoria
+          </label>
+          <select id="categoria" name="categoria" className="select" defaultValue={categoryId}>
+            <option value="">Todas</option>
+            {allCategories.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="ordem" className="label">
+            Ordem
+          </label>
+          <select id="ordem" name="ordem" className="select" defaultValue={sort}>
+            {SORTS.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-span-2 flex flex-wrap gap-3">
+          <button type="submit" className="btn btn-dark">
+            <Search size={18} aria-hidden /> Filtrar
+          </button>
+          {filtered && (
+            <Link href="/admin/produtos" className="btn btn-outline">
+              Limpar
+            </Link>
+          )}
+        </div>
       </form>
 
       {result.items.length === 0 ? (
         <EmptyState
-          title={q || status !== "all" ? "Nenhum produto encontrado" : "Você ainda não cadastrou produtos"}
+          title={filtered ? "Nenhum produto encontrado" : "Você ainda não cadastrou produtos"}
           action={
             <Link href="/admin/produtos/novo" className="btn btn-primary">
               Cadastrar o primeiro produto
             </Link>
           }
         >
-          {q || status !== "all" ? "Tente outro nome ou limpe os filtros." : "Cadastre um produto e ele aparece aqui."}
+          {filtered ? "Tente outro nome ou limpe os filtros." : "Cadastre um produto e ele aparece aqui."}
         </EmptyState>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-cards">
             <thead>
               <tr>
                 <th scope="col">Produto</th>
@@ -120,7 +166,7 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                 const thumb = fileUrl(product.images[0]?.thumbKey);
                 return (
                   <tr key={product.id}>
-                    <td>
+                    <td data-primary>
                       <div className="flex items-center gap-3">
                         <div className="h-12 w-12 shrink-0 overflow-hidden rounded bg-panel">
                           {thumb && (
@@ -137,12 +183,12 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                         </div>
                       </div>
                     </td>
-                    <td>{product.category?.name ?? <span className="text-ink-soft">—</span>}</td>
-                    <td className="whitespace-nowrap text-right tabular-nums">
+                    <td data-label="Categoria">{product.category?.name ?? <span className="text-ink-soft">—</span>}</td>
+                    <td data-label="Preço" className="whitespace-nowrap text-right tabular-nums">
                       {formatBRL(effectivePriceCents(product))}
                       {isOnSale(product) && <span className="block text-xs text-ink-soft line-through">{formatBRL(product.priceCents)}</span>}
                     </td>
-                    <td className="text-right tabular-nums">
+                    <td data-label="Estoque" className="text-right tabular-nums">
                       {product.stock === 0 ? (
                         <Badge tone="danger">Sem estoque</Badge>
                       ) : product.stock <= product.lowStockThreshold ? (
@@ -151,11 +197,14 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                         product.stock
                       )}
                     </td>
-                    <td>{product.active ? <Badge tone="success">Publicado</Badge> : <Badge tone="neutral">Rascunho</Badge>}</td>
-                    <td>
-                      <div className="flex flex-wrap justify-end gap-2">
+                    <td data-label="Situação">{product.active ? <Badge tone="success">Publicado</Badge> : <Badge tone="neutral">Rascunho</Badge>}</td>
+                    <td className="table-actions">
+                      <div className="flex flex-wrap justify-end gap-2 max-md:justify-start max-md:pt-1">
                         <Link href={`/admin/produtos/${product.id}`} className="btn btn-outline btn-sm">
                           Editar
+                        </Link>
+                        <Link href={`/admin/produtos/novo?copiar=${product.id}`} className="btn btn-outline btn-sm" title="Cadastrar outro produto parecido, partindo deste">
+                          Duplicar
                         </Link>
                         <ToggleProductActive productId={product.id} active={product.active} name={product.name} />
                       </div>

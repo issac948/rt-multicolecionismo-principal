@@ -254,9 +254,12 @@ export async function listProductSlugsForSitemap(): Promise<Array<{ slug: string
 
 /* ----------------------------- Painel (admin) ----------------------------- */
 
-export type AdminProductStatus = "all" | "active" | "inactive" | "low" | "out";
+export type AdminProductStatus = "all" | "active" | "inactive" | "low" | "out" | "nophoto";
+export type AdminProductSort = "recentes" | "nome" | "estoque";
 
-export async function adminListProducts(options: { q?: string; status?: AdminProductStatus; page?: number; pageSize?: number } = {}) {
+export async function adminListProducts(
+  options: { q?: string; status?: AdminProductStatus; categoryId?: string; sort?: AdminProductSort; page?: number; pageSize?: number } = {},
+) {
   const page = Math.max(1, Math.floor(options.page ?? 1));
   const pageSize = options.pageSize ?? 20;
   const conditions: SQL[] = [];
@@ -265,6 +268,8 @@ export async function adminListProducts(options: { q?: string; status?: AdminPro
   if (options.status === "inactive") conditions.push(eq(products.active, false));
   if (options.status === "low") conditions.push(and(gte(products.stock, 1), lte(products.stock, products.lowStockThreshold)) as SQL);
   if (options.status === "out") conditions.push(eq(products.stock, 0));
+  if (options.status === "nophoto") conditions.push(sql`not exists (select 1 from product_images pi where pi.product_id = "products"."id")`);
+  if (options.categoryId) conditions.push(eq(products.categoryId, options.categoryId));
   if (options.q) {
     for (const token of normalizeForSearch(options.q).split(" ").filter(Boolean).slice(0, 6)) {
       conditions.push(ilike(products.searchText, `%${escapeLike(token)}%`));
@@ -275,7 +280,7 @@ export async function adminListProducts(options: { q?: string; status?: AdminPro
   const [items, [{ total }]] = await Promise.all([
     db.query.products.findMany({
       where,
-      orderBy: [desc(products.createdAt)],
+      orderBy: options.sort === "nome" ? [asc(products.name)] : options.sort === "estoque" ? [asc(products.stock), asc(products.name)] : [desc(products.createdAt)],
       limit: pageSize,
       offset: (page - 1) * pageSize,
       with: withRelations,
@@ -359,7 +364,8 @@ async function syncImages(tx: Tx, productId: string, imageIds: string[]): Promis
   return removed;
 }
 
-function toRow(input: ProductInput) {
+/** Converte os dados validados nas colunas da tabela (também usado pela importação de planilha). */
+export function toRow(input: ProductInput) {
   return {
     name: input.name,
     sku: input.sku,

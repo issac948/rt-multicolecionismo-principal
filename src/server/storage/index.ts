@@ -1,85 +1,53 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { getEnv } from "../env";
+import { DatabaseStorage } from "./database";
+import { LocalDiskStorage } from "./local";
+import { S3Storage } from "./s3";
+import type { StorageProvider } from "./types";
+
+export { isValidStorageKey, contentTypeForKey, type StorageProvider } from "./types";
+export { LocalDiskStorage } from "./local";
+export { DatabaseStorage } from "./database";
+
+/** Informa por que o armazenamento escolhido não pode ser usado (configuração incompleta), ou null se está tudo certo. */
+export function storageConfigProblem(): string | null {
+  const { storage } = getEnv();
+  if (storage.driver !== "s3") return null;
+  const s3 = storage.s3;
+  const missing = [
+    !s3.endpoint && "S3_ENDPOINT",
+    !s3.bucket && "S3_BUCKET",
+    !s3.accessKeyId && "S3_ACCESS_KEY_ID",
+    !s3.secretAccessKey && "S3_SECRET_ACCESS_KEY",
+  ].filter(Boolean);
+  return missing.length > 0 ? `Armazenamento externo (s3) sem: ${missing.join(", ")}.` : null;
+}
 
 /**
- * Abstração de armazenamento de arquivos. Para trocar o local das imagens
- * (ex.: Cloudflare R2 / Amazon S3), crie outra classe que implemente
- * `StorageProvider` e devolva-a em `getStorage()`. Nenhum outro código muda,
- * pois o restante do sistema só conhece chaves como "products/abc.webp".
+ * Escolhe onde as fotos ficam (variável STORAGE_DRIVER):
+ *  - "database": no PostgreSQL da loja (padrão no Netlify e outras hospedagens sem disco permanente);
+ *  - "local": em uma pasta (padrão no computador e em servidor com disco permanente);
+ *  - "s3": em serviço externo compatível com S3 (Cloudflare R2, etc.).
  */
-export interface StorageProvider {
-  put(key: string, data: Buffer, contentType: string): Promise<void>;
-  get(key: string): Promise<{ data: Buffer; contentType: string } | null>;
-  delete(key: string): Promise<void>;
-  /** Endereço público (relativo ou absoluto) para usar em <img src>. */
-  publicUrl(key: string): string;
-}
-
-const CONTENT_TYPES: Record<string, string> = {
-  ".webp": "image/webp",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-};
-
-/** Só chaves simples como "products/6f1c...webp"; nada de "..", barras duplas ou caracteres estranhos. */
-const KEY_RE = /^[a-z0-9][a-z0-9_-]*(\/[a-z0-9][a-z0-9_-]*)*\.(webp|png|jpg|jpeg)$/i;
-
-export function isValidStorageKey(key: string): boolean {
-  return key.length <= 200 && KEY_RE.test(key) && !key.includes("..");
-}
-
-export class LocalDiskStorage implements StorageProvider {
-  constructor(private readonly rootDir: string) {}
-
-  private resolve(key: string): string {
-    if (!isValidStorageKey(key)) throw new Error("Chave de arquivo inválida.");
-    const full = path.resolve(this.rootDir, key);
-    const root = path.resolve(this.rootDir);
-    if (!full.startsWith(root + path.sep)) throw new Error("Caminho fora da pasta de uploads.");
-    return full;
-  }
-
-  async put(key: string, data: Buffer): Promise<void> {
-    const full = this.resolve(key);
-    await fs.mkdir(path.dirname(full), { recursive: true });
-    // Grava em arquivo temporário e renomeia: nunca existe arquivo pela metade.
-    const tmp = `${full}.${process.pid}.${Date.now()}.tmp`;
-    await fs.writeFile(tmp, data, { mode: 0o644 });
-    await fs.rename(tmp, full);
-  }
-
-  async get(key: string): Promise<{ data: Buffer; contentType: string } | null> {
-    if (!isValidStorageKey(key)) return null;
-    try {
-      const data = await fs.readFile(this.resolve(key));
-      const contentType = CONTENT_TYPES[path.extname(key).toLowerCase()] ?? "application/octet-stream";
-      return { data, contentType };
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
-      throw error;
-    }
-  }
-
-  async delete(key: string): Promise<void> {
-    try {
-      await fs.unlink(this.resolve(key));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
-    }
-  }
-
-  publicUrl(key: string): string {
-    return `/uploads/${key}`;
-  }
-}
-
 export function getStorage(): StorageProvider {
-  return new LocalDiskStorage(getEnv().uploadDir);
+  const env = getEnv();
+  switch (env.storage.driver) {
+    case "database":
+      return new DatabaseStorage();
+    case "s3": {
+      const problem = storageConfigProblem();
+      if (problem) throw new Error(problem);
+      return new S3Storage({ ...env.storage.s3, publicBaseUrl: env.storage.publicBaseUrl });
+    }
+    default:
+      return new LocalDiskStorage(env.uploadDir);
+  }
 }
 
 /** URL pública de uma chave de arquivo (ou null). */
 export function fileUrl(key: string | null | undefined): string | null {
-  return key ? getStorage().publicUrl(key) : null;
+  if (!key) return null;
+  const { storage } = getEnv();
+  // Com serviço externo + endereço público, as fotos saem direto do CDN (sem passar pela loja).
+  if (storage.driver === "s3" && storage.publicBaseUrl) return `${storage.publicBaseUrl}/${key}`;
+  return `/uploads/${key}`;
 }

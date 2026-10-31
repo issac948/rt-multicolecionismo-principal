@@ -2,6 +2,12 @@ import path from "node:path";
 
 export type AiProviderId = "anthropic" | "openai" | "none";
 export type PaymentProviderId = "paypal" | "mercadopago" | "infinitepay";
+export type StorageDriverId = "local" | "database" | "s3";
+
+/** Hospedagem "sem servidor" (Netlify, AWS Lambda, Vercel): o disco do servidor é temporário e some a cada publicação. */
+export function isServerlessRuntime(): boolean {
+  return Boolean(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME || process.env.VERCEL);
+}
 
 /**
  * Leitura central das variáveis de ambiente. Lê a cada chamada (barato) para que
@@ -21,7 +27,38 @@ export function getEnv() {
     secureCookies: siteUrl.startsWith("https://"),
     // Pasta de fotos escolhida em tempo de execução (não faz parte do código): o Next não deve rastreá-la no build.
     uploadDir: path.resolve(/*turbopackIgnore: true*/ process.cwd(), process.env.UPLOAD_DIR || "./storage/uploads"),
+    isServerless: isServerlessRuntime(),
+    /**
+     * Tamanho do plano do banco de dados contratado (em MB), só para avisos no painel e para recusar fotos quando ele estiver quase cheio.
+     * O padrão (512) é conservador; o plano gratuito atual do Neon informa 1 GB (1024). Confira no painel do Neon e ajuste.
+     */
+    databasePlanLimitBytes: Math.max(100, Math.min(10_000_000, Number(process.env.DATABASE_PLAN_LIMIT_MB) || 512)) * 1024 * 1024,
     cronSecret: process.env.CRON_SECRET || "",
+    storage: {
+      /**
+       * Onde ficam as fotos. Sem STORAGE_DRIVER: em hospedagem sem servidor (Netlify) usa o próprio banco PostgreSQL ("database"),
+       * pois o disco de lá não é permanente; em computador/servidor comum usa a pasta de uploads ("local").
+       */
+      driver: ((): StorageDriverId => {
+        const v = (process.env.STORAGE_DRIVER || "").toLowerCase();
+        if (v === "local" || v === "database" || v === "s3") return v;
+        return isServerlessRuntime() ? "database" : "local";
+      })(),
+      /**
+       * Teto para as fotos guardadas no banco (em MB). Passou disso, novos envios são recusados com aviso claro:
+       * assim as fotos nunca enchem o plano do banco e derrubam pedidos e pagamentos.
+       */
+      dbMaxBytes: Math.max(10, Math.min(100_000, Number(process.env.STORAGE_DB_MAX_MB) || 300)) * 1024 * 1024,
+      /** Endereço público base das fotos quando elas ficam em um serviço externo com CDN (ex.: https://fotos.minhaloja.com.br). */
+      publicBaseUrl: (process.env.STORAGE_PUBLIC_BASE_URL || "").trim().replace(/\/+$/, ""),
+      s3: {
+        endpoint: (process.env.S3_ENDPOINT || "").trim().replace(/\/+$/, ""),
+        region: (process.env.S3_REGION || "auto").trim(),
+        bucket: (process.env.S3_BUCKET || "").trim(),
+        accessKeyId: (process.env.S3_ACCESS_KEY_ID || "").trim(),
+        secretAccessKey: (process.env.S3_SECRET_ACCESS_KEY || "").trim(),
+      },
+    },
     trustProxy: process.env.TRUST_PROXY === "true",
     /** Qual gateway a loja usa. O padrão é o PayPal (a conta do negócio); o Mercado Pago continua disponível se alguém configurar. */
     paymentProvider: ((): PaymentProviderId => {

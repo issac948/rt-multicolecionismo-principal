@@ -7,6 +7,7 @@ import type { ProductFormValues } from "@/components/admin/product-form-values";
 import { Alert, Field } from "@/components/ui";
 import { PRODUCT_CONDITION_LABEL, PRODUCT_CONDITIONS, SUGGESTED_BRANDS, SUGGESTED_SCALES } from "@/lib/constants";
 import { useActionForm } from "@/components/use-action-form";
+import { uploadAdminImage } from "@/lib/client-upload";
 import { saveProductAction } from "@/server/actions/admin";
 import type { FormState } from "@/server/actions/shared";
 
@@ -75,22 +76,14 @@ export function ProductForm({
 
     for (const file of selected) {
       setUploading((n) => n + 1);
-      try {
-        const body = new FormData();
-        body.append("file", file);
-        const response = await fetch("/api/admin/upload", { method: "POST", body });
-        const json = (await response.json().catch(() => ({}))) as Partial<UploadedImage> & { error?: string };
-        if (!response.ok || !json.id || !json.url || !json.thumbUrl) {
-          setUploadError(`${file.name}: ${json.error ?? "não foi possível enviar a foto."}`);
-          continue;
-        }
-        const saved: UploadedImage = { id: json.id, url: json.url, thumbUrl: json.thumbUrl };
+      const result = await uploadAdminImage<Partial<UploadedImage>>(file, "product");
+      if (!result.ok || !result.data.id || !result.data.url || !result.data.thumbUrl) {
+        setUploadError(`${file.name}: ${result.ok ? "não foi possível enviar a foto." : result.error}`);
+      } else {
+        const saved: UploadedImage = { id: result.data.id, url: result.data.url, thumbUrl: result.data.thumbUrl };
         setImages((current) => [...current, saved]);
-      } catch {
-        setUploadError(`${file.name}: falha de conexão ao enviar a foto.`);
-      } finally {
-        setUploading((n) => n - 1);
       }
+      setUploading((n) => n - 1);
     }
     if (fileInput.current) fileInput.current.value = "";
   }
@@ -131,7 +124,7 @@ export function ProductForm({
         <h2 id="pf-fotos" className="text-2xl">
           Fotos
         </h2>
-        <p className="text-sm text-ink-soft">A primeira foto é a principal. JPG, PNG, WebP ou GIF, até 8 MB cada, máximo {MAX_IMAGES}.</p>
+        <p className="text-sm text-ink-soft">A primeira foto é a principal. JPG, PNG, WebP ou GIF, máximo {MAX_IMAGES}. As fotos grandes são reduzidas automaticamente antes do envio.</p>
 
         {images.length > 0 && (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
@@ -468,19 +461,22 @@ export function ProductForm({
             {state.message}
           </Alert>
         )}
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="grid grid-cols-2 items-center gap-2 sm:flex sm:flex-wrap sm:gap-3">
           {mode === "create" ? (
             <>
-              <button type="submit" name="intent" value="publish" className="btn btn-primary" disabled={busy}>
+              <button type="submit" name="intent" value="publish" className="btn btn-primary max-sm:!px-3" disabled={busy}>
                 {pending ? "Salvando..." : "Publicar na loja"}
               </button>
-              <button type="submit" name="intent" value="draft" className="btn btn-outline" disabled={busy}>
+              <button type="submit" name="intent" value="draft" className="btn btn-outline max-sm:!px-3" disabled={busy}>
                 Salvar como rascunho
+              </button>
+              <button type="submit" name="intent" value="draft-another" className="btn btn-outline max-sm:col-span-2" disabled={busy} title="Salva como rascunho e abre um formulário novo, já com a mesma categoria, marca e escala">
+                Salvar rascunho e cadastrar outro
               </button>
             </>
           ) : (
             <>
-              <label className="flex items-center gap-2 font-semibold">
+              <label className="flex items-center gap-2 font-semibold max-sm:col-span-2">
                 <input type="checkbox" className="checkbox" name="active" defaultChecked={initial.active} />
                 Visível na loja
               </label>
@@ -489,7 +485,7 @@ export function ProductForm({
               </button>
             </>
           )}
-          {uploading > 0 && <p className="hint !mt-0">Aguarde o envio das fotos terminar para salvar.</p>}
+          {uploading > 0 && <p className="hint !mt-0 max-sm:col-span-2">Aguarde o envio das fotos terminar para salvar.</p>}
         </div>
       </div>
     </form>

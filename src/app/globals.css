@@ -66,6 +66,14 @@
   a {
     color: var(--color-link);
   }
+  /* Link no meio de um texto: sublinhado (a cor sozinha não basta para quem não distingue cores). */
+  p a:not([class]),
+  li a:not([class]),
+  .alert a,
+  .hint a {
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
+  }
   :focus-visible {
     outline: 3px solid var(--color-ink);
     outline-offset: 2px;
@@ -425,6 +433,135 @@
     text-decoration: underline;
     text-underline-offset: 3px;
   }
+  .product-card__meta {
+    margin-bottom: -0.35rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-ink-soft);
+  }
+  /* Nome em até 3 linhas: os preços dos cartões vizinhos ficam alinhados sem cortar nomes longos. */
+  .product-card__name {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: 1.1rem;
+  }
+  .product-card__price {
+    margin-top: auto;
+  }
+
+  /*
+   * Faixa de produtos: no celular rola de lado (cada cartão "encaixa" ao parar), do lado a lado da tela;
+   * a partir de 768 px vira grade normal. Evita páginas gigantes no celular com seis grades iguais.
+   */
+  .rail {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(10.5rem, 46%);
+    gap: 1rem;
+    margin-inline: -1rem;
+    padding: 0.25rem 1rem 0.75rem;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 1rem;
+    scrollbar-width: thin;
+  }
+  .rail > li {
+    scroll-snap-align: start;
+    display: flex;
+  }
+  .rail > li > * {
+    width: 100%;
+  }
+  @media (min-width: 640px) {
+    .rail {
+      margin-inline: 0;
+      padding: 0;
+      overflow: visible;
+      grid-auto-flow: row;
+      grid-auto-columns: auto;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      row-gap: 2rem;
+    }
+  }
+  @media (min-width: 1024px) {
+    .rail {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+  }
+
+  /* Cabeçalho de seção: filete preto em cima, como o cabeçalho de uma página de catálogo. */
+  .section-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 1rem;
+    padding-top: 0.7rem;
+    border-top: 3px solid var(--color-ink);
+  }
+  .section-head h2 {
+    font-size: clamp(1.5rem, 3vw, 1.9rem);
+  }
+  .section-head a {
+    font-weight: 600;
+  }
+
+  /* Chips de marca e subcategoria: contorno fino, rolam de lado no celular. */
+  .chip-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-inline: -1rem;
+    padding: 0.25rem 1rem 0.5rem;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  @media (min-width: 640px) {
+    .chip-row {
+      flex-wrap: wrap;
+      margin-inline: 0;
+      padding-inline: 0;
+      overflow: visible;
+    }
+  }
+  .chip {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 2.75rem;
+    padding: 0 1rem;
+    border: 1.5px solid var(--color-ink);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--color-ink);
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .chip:hover {
+    background: var(--color-night);
+    color: var(--color-signal);
+  }
+  .chip small {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    opacity: 0.7;
+  }
+
+  /* Carregando: blocos cinza simples (sem brilho animado quando a pessoa pede menos movimento). */
+  .skeleton {
+    border-radius: 6px;
+    background: var(--color-panel);
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes skeleton-pulse {
+    50% {
+      opacity: 0.55;
+    }
+  }
 
   /* ----- Tabelas do painel ----- */
   .table-wrap {
@@ -456,6 +593,67 @@
     background: #faf8f3;
   }
 
+  /*
+   * Tabela que vira lista de cartões no celular (classe .table-cards no <table>, e data-label em cada <td>).
+   * Em telas largas continua uma tabela normal.
+   */
+  @media (max-width: 767px) {
+    .table-cards,
+    .table-cards tbody,
+    .table-cards tr,
+    .table-cards td {
+      display: block;
+      width: 100%;
+    }
+    .table-cards thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    .table-cards tbody tr {
+      padding: 0.75rem 0.9rem;
+      border-top: 1px solid var(--color-line);
+    }
+    .table-cards tbody tr:first-child {
+      border-top: 0;
+    }
+    .table-cards td {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.25rem 0;
+      border-top: 0;
+      text-align: right;
+    }
+    .table-cards td::before {
+      content: attr(data-label);
+      flex: none;
+      color: var(--color-ink-soft);
+      font-size: 0.875rem;
+      font-weight: 600;
+      text-align: left;
+    }
+    .table-cards td[data-label=""]::before,
+    .table-cards td:not([data-label])::before {
+      content: none;
+    }
+    .table-cards td[data-primary] {
+      display: block;
+      padding-bottom: 0.4rem;
+      text-align: left;
+      font-weight: 700;
+    }
+    .table-cards td[data-primary]::before {
+      content: none;
+    }
+    .table-cards .table-actions {
+      justify-content: flex-start;
+    }
+  }
+
   .panel {
     background: #fff;
     border-radius: 6px;
@@ -467,6 +665,466 @@
   }
   .prose-simple {
     max-width: 65ch;
+  }
+
+
+  /* ----- Calendário de eventos (site e painel) ----- */
+  .cal {
+    display: grid;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (min-width: 768px) {
+    .cal {
+      grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+      gap: 2rem;
+    }
+  }
+  .cal-board {
+    /* Sem isto a coluna do grid cresce até o conteúdo mais largo e a página passa da tela em celulares de 320 px. */
+    min-width: 0;
+    background: #fff;
+    border-radius: 6px;
+    padding: 0.75rem;
+  }
+  @media (min-width: 480px) {
+    .cal-board {
+      padding: 1rem;
+    }
+  }
+  .cal-head {
+    display: flex;
+    /* Em tela muito estreita (320 px), com o botão "Ir para hoje" visível, os botões descem para a linha de baixo. */
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+  .cal-month {
+    font-size: 1.5rem;
+    font-weight: 800;
+    font-stretch: 76%;
+    line-height: 1.1;
+  }
+  .cal-month::first-letter {
+    text-transform: uppercase;
+  }
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: auto;
+  }
+  .cal-today {
+    margin-right: 0.35rem;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .cal-arrow {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 2px solid var(--color-ink);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--color-ink);
+    cursor: pointer;
+  }
+  .cal-arrow:hover:not(:disabled) {
+    background: var(--color-panel);
+  }
+  .cal-arrow:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+  .cal-weekdays,
+  .cal-week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+  }
+  .cal-weekdays {
+    margin-bottom: 3px;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: var(--color-ink-soft);
+  }
+  .cal-grid {
+    display: grid;
+    gap: 3px;
+    transition: opacity 0.15s;
+  }
+  .cal-grid.is-loading {
+    opacity: 0.55;
+  }
+  .cal-blank {
+    min-height: 2.75rem;
+  }
+  .cal-day {
+    position: relative;
+    display: flex;
+    width: 100%;
+    min-height: 2.75rem;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 0.2rem 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--color-ink);
+    font: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+  }
+  @media (min-width: 768px) {
+    .cal-day {
+      min-height: 3.25rem;
+    }
+  }
+  .cal-day:hover {
+    background: var(--color-panel);
+  }
+  .cal-day.is-past:not(.has-events) {
+    color: var(--color-ink-soft);
+  }
+  /* Dia com evento: preto com o número dourado, como a logo. */
+  .cal-day.has-events {
+    background: var(--color-night);
+    color: var(--color-signal);
+    font-weight: 800;
+  }
+  .cal-day.has-events:hover {
+    background: #2a2a2a;
+  }
+  .cal-day.has-events.is-past {
+    background: #55504a;
+    color: #fff;
+  }
+  /* Dia escolhido: dourado com contorno preto (o foco do teclado usa o contorno padrão do site). */
+  .cal-day.is-selected {
+    background: var(--color-signal);
+    color: var(--color-ink);
+    box-shadow: inset 0 0 0 2px var(--color-ink);
+    font-weight: 800;
+  }
+  .cal-day.is-selected:hover {
+    background: var(--color-signal-deep);
+  }
+  /* Hoje: bandeirinha vermelha no canto. */
+  .cal-day.is-today::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 0.75rem;
+    height: 0.75rem;
+    background: var(--color-enamel);
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+    border-top-right-radius: 4px;
+  }
+  .cal-day-count {
+    display: flex;
+    gap: 2px;
+    height: 5px;
+  }
+  .cal-day-count i {
+    width: 5px;
+    height: 5px;
+    background: currentColor;
+  }
+  /* Só no painel: rascunho (tracejado) e cancelado (vermelho claro). */
+  .cal-day[data-tone="rascunho"] {
+    background: transparent;
+    color: var(--color-ink);
+    box-shadow: inset 0 0 0 2px var(--color-ink-soft);
+    border-style: dashed;
+  }
+  .cal-day[data-tone="cancelado"] {
+    background: var(--color-enamel-soft);
+    color: var(--color-enamel-deep);
+    text-decoration: line-through;
+  }
+  .cal-day.is-selected[data-tone] {
+    background: var(--color-signal);
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+  .cal-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem 1rem;
+    margin-top: 0.85rem;
+    font-size: 0.85rem;
+    color: var(--color-ink-soft);
+  }
+  .cal-legend li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .cal-key {
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 3px;
+  }
+  .cal-key-on {
+    background: var(--color-night);
+  }
+  .cal-key-today {
+    background: var(--color-enamel);
+    clip-path: polygon(0 0, 100% 0, 100% 100%);
+  }
+  .cal-key-draft {
+    box-shadow: inset 0 0 0 2px var(--color-ink-soft);
+  }
+  .cal-key-cancelled {
+    background: var(--color-enamel-soft);
+    box-shadow: inset 0 0 0 1px var(--color-enamel);
+  }
+  .cal-detail {
+    min-width: 0;
+  }
+  .cal-detail-title {
+    font-size: 1.35rem;
+    text-transform: none;
+    margin-bottom: 0.9rem;
+  }
+  .cal-detail-title::first-letter {
+    text-transform: uppercase;
+  }
+  .cal-empty {
+    padding: 1rem 1.1rem;
+    border-radius: 6px;
+    background: var(--color-panel);
+    color: var(--color-ink-soft);
+  }
+  .cal-events {
+    display: grid;
+    gap: 1rem;
+  }
+  .cal-event {
+    display: grid;
+    overflow: hidden;
+    border-radius: 6px;
+    background: #fff;
+    border-left: 5px solid var(--color-signal);
+  }
+  .cal-event.is-cancelled {
+    border-left-color: var(--color-enamel);
+    opacity: 0.85;
+  }
+  .cal-event-photo {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    background: var(--color-panel);
+  }
+  .cal-event-body {
+    padding: 1rem 1.1rem 1.1rem;
+  }
+  .cal-event-title {
+    font-size: 1.3rem;
+    font-weight: 800;
+    font-stretch: 80%;
+    line-height: 1.15;
+  }
+  .cal-event-meta {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+  }
+  .cal-event-text {
+    margin-top: 0.75rem;
+    max-width: 65ch;
+    white-space: pre-line;
+    color: var(--color-ink-soft);
+  }
+  @media (min-width: 640px) {
+    .cal-event:has(.cal-event-photo) {
+      grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+    }
+    .cal-event-photo {
+      height: 100%;
+      aspect-ratio: auto;
+      min-height: 10rem;
+    }
+  }
+
+
+  /* Linha de "próximo evento": o quadrado da data repete o dia preto e dourado do calendário. */
+  .upcoming-row {
+    display: grid;
+    grid-template-columns: 3.75rem minmax(0, 1fr);
+    align-items: center;
+    gap: 0.9rem;
+    padding: 0.6rem 0.9rem 0.6rem 0.6rem;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--color-ink);
+    text-decoration: none;
+  }
+  .upcoming-row:hover {
+    background: var(--color-panel);
+  }
+  .upcoming-row:hover .upcoming-date {
+    background: #2a2a2a;
+  }
+  .upcoming-date {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 4rem;
+    border-radius: 4px;
+    background: var(--color-night);
+    color: var(--color-signal);
+  }
+
+  /* ----- Cabeçalho da loja ----- */
+  .site-header {
+    position: relative;
+    z-index: 40;
+  }
+  /* No celular a barra é baixa (uma linha só), então pode ficar presa no topo. */
+  @media (max-width: 767px) {
+    .site-header {
+      position: sticky;
+      top: 0;
+    }
+  }
+  .icon-btn {
+    display: inline-grid;
+    flex: none;
+    place-items: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+  }
+  .icon-btn:hover {
+    background: rgb(255 255 255 / 0.12);
+  }
+  /* Gaveta do menu no celular: <dialog> nativo (foco preso, Esc fecha, fundo inerte). */
+  .drawer {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: min(21rem, 88vw);
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    overflow-y: auto;
+    background: var(--color-night);
+    color: #fff;
+    border-right: 3px solid var(--color-signal);
+  }
+  .drawer:not([open]) {
+    display: none;
+  }
+  .drawer::backdrop {
+    background: rgb(0 0 0 / 0.62);
+  }
+  .drawer-link {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 2.9rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    color: #fff;
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .drawer-link:hover,
+  .drawer-link[aria-current="page"] {
+    background: rgb(255 255 255 / 0.1);
+    color: var(--color-signal);
+  }
+  body:has(.drawer[open]) {
+    overflow: hidden;
+  }
+
+  /* Janela de ampliação da foto do produto. */
+  .photo-viewer {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: rgb(8 8 8 / 0.96);
+    color: #fff;
+  }
+  .photo-viewer:not([open]) {
+    display: none;
+  }
+  .photo-viewer__bar {
+    position: absolute;
+    inset: 0 0 auto 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(rgb(0 0 0 / 0.7), transparent);
+  }
+  .photo-viewer__stage {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
+    padding: 3.5rem 0.5rem 0.5rem;
+    overflow: auto;
+  }
+  .photo-viewer__stage img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    cursor: zoom-in;
+  }
+  /* Tamanho real: a foto passa da tela e dá para rolar/arrastar para ver os detalhes. */
+  .photo-viewer__stage.is-zoomed {
+    place-items: start;
+  }
+  .photo-viewer__stage.is-zoomed img {
+    max-width: none;
+    max-height: none;
+    width: auto;
+    cursor: zoom-out;
+  }
+  .photo-viewer__prev,
+  .photo-viewer__next {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    margin-top: -1.4rem;
+    background: rgb(0 0 0 / 0.55);
+  }
+  .photo-viewer__prev {
+    left: 0.5rem;
+  }
+  .photo-viewer__next {
+    right: 0.5rem;
+  }
+  body:has(.photo-viewer[open]) {
+    overflow: hidden;
   }
 
   /* ----- Elementos da marca ----- */
@@ -507,10 +1165,8 @@
     letter-spacing: 0.01em;
   }
   .eyebrow {
-    font-size: 0.8125rem;
-    font-weight: 800;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    font-size: 0.95rem;
+    font-weight: 700;
     color: var(--color-signal);
   }
   /* Título de seção com filete dourado, no estilo da faixa da logo. */

@@ -97,7 +97,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               <p className="text-ink-soft">Nenhum pagamento recebido ainda.</p>
             ) : (
               <div className="table-wrap border border-line">
-                <table className="table">
+                <table className="table table-cards">
                   <thead>
                     <tr>
                       <th scope="col">Quando</th>
@@ -112,13 +112,13 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                   <tbody>
                     {order.payments.map((payment) => (
                       <tr key={payment.id}>
-                        <td className="whitespace-nowrap">{formatDateTime(payment.createdAt)}</td>
-                        <td>{paymentMethodLabel(payment.method)}</td>
-                        <td>
+                        <td data-primary className="whitespace-nowrap">{formatDateTime(payment.createdAt)}</td>
+                        <td data-label="Forma">{paymentMethodLabel(payment.method)}</td>
+                        <td data-label="Status">
                           <PaymentStatusBadge status={payment.status} />
                         </td>
-                        <td className="text-sm text-ink-soft">{payment.statusDetail ?? payment.rawStatus ?? ""}</td>
-                        <td className="text-right tabular-nums">{formatBRL(payment.amountCents)}</td>
+                        <td data-label="Detalhe" className="text-sm text-ink-soft">{payment.statusDetail ?? payment.rawStatus ?? ""}</td>
+                        <td data-label="Valor" className="text-right tabular-nums">{formatBRL(payment.amountCents)}</td>
                       </tr>
                     ))}
                   </tbody>

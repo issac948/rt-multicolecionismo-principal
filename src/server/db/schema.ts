@@ -3,6 +3,8 @@ import {
   type AnyPgColumn,
   boolean,
   check,
+  customType,
+  date,
   index,
   integer,
   jsonb,
@@ -14,6 +16,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { EVENT_STATUSES, type EventStatus } from "../../lib/events";
 import {
   ORDER_STATUSES,
   PAYMENT_STATUSES,
@@ -458,6 +461,93 @@ export const settings = pgTable(
 );
 
 /* ------------------------------------------------------------------ */
+/* Arquivos guardados no banco (fotos) e eventos                       */
+/* ------------------------------------------------------------------ */
+
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
+
+/**
+ * Fotos guardadas no próprio PostgreSQL (armazenamento padrão em hospedagem sem disco permanente, como o Netlify).
+ * A chave é a mesma usada no resto do sistema ("products/abc.webp"): trocar de armazenamento não muda nenhuma outra tabela.
+ */
+export const storedFiles = pgTable(
+  "stored_files",
+  {
+    key: text("key").primaryKey(),
+    contentType: text("content_type").notNull(),
+    size: integer("size").notNull(),
+    data: bytea("data").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("stored_files_created_idx").on(t.createdAt)],
+);
+
+/** Modelo reutilizável de evento (ex.: "Feira de Colecionadores do Parque"). Serve só como ponto de partida das participações. */
+export const eventTemplates = pgTable(
+  "event_templates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    location: text("location").notNull().default(""),
+    /** HH:MM */
+    defaultStartTime: text("default_start_time"),
+    defaultEndTime: text("default_end_time"),
+    imageKey: text("image_key"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    check("event_templates_start_valid", sql`${t.defaultStartTime} IS NULL OR ${t.defaultStartTime} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`),
+    check("event_templates_end_valid", sql`${t.defaultEndTime} IS NULL OR ${t.defaultEndTime} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`),
+  ],
+);
+
+/**
+ * Uma participação da loja em uma data. Os dados são COPIADOS do modelo na hora de criar:
+ * editar o modelo depois nunca muda participações já marcadas (só se o dono pedir, explicitamente).
+ */
+export const events = pgTable(
+  "events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Fica nulo para evento único (sem modelo) ou se o modelo for excluído. */
+    templateId: uuid("template_id").references(() => eventTemplates.id, { onDelete: "set null" }),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    location: text("location").notNull().default(""),
+    /** Data de calendário (sem fuso). */
+    eventDate: date("event_date", { mode: "string" }).notNull(),
+    startTime: text("start_time"),
+    endTime: text("end_time"),
+    imageKey: text("image_key"),
+    status: text("status").$type<EventStatus>().notNull().default("PUBLICADO"),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("events_date_idx").on(t.eventDate),
+    index("events_template_idx").on(t.templateId),
+    check("events_status_valid", sql`${t.status} IN (${sql.raw(EVENT_STATUSES.map((s) => `'${s}'`).join(", "))})`),
+    check("events_start_valid", sql`${t.startTime} IS NULL OR ${t.startTime} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`),
+    check("events_end_valid", sql`${t.endTime} IS NULL OR ${t.endTime} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`),
+  ],
+);
+
+export const eventTemplatesRelations = relations(eventTemplates, ({ many }) => ({
+  events: many(events),
+}));
+
+export const eventsRelations = relations(events, ({ one }) => ({
+  template: one(eventTemplates, { fields: [events.templateId], references: [eventTemplates.id] }),
+}));
+
+/* ------------------------------------------------------------------ */
 /* Relações (para db.query.*)                                          */
 /* ------------------------------------------------------------------ */
 
@@ -535,3 +625,5 @@ export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
 export type StockMovement = typeof stockMovements.$inferSelect;
+export type EventTemplate = typeof eventTemplates.$inferSelect;
+export type EventRow = typeof events.$inferSelect;

@@ -6,7 +6,7 @@
 import { pool } from "../src/server/db";
 import { runMaintenance } from "../src/server/services/maintenance";
 
-runMaintenance()
+runMaintenance("terminal")
   .then((report) => console.log("Manutenção concluída:", report))
   .catch((error) => {
     console.error("Falha na manutenção:", error);

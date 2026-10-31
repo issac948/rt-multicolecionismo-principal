@@ -52,7 +52,7 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
         </EmptyState>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-cards">
             <thead>
               <tr>
                 <th scope="col">Cliente</th>
@@ -73,22 +73,22 @@ export default async function AdminCustomersPage({ searchParams }: { searchParam
             <tbody>
               {result.rows.map((customer) => (
                 <tr key={customer.id}>
-                  <td>
+                  <td data-primary>
                     <p className="font-bold">{customer.name}</p>
                     <p className="text-xs text-ink-soft">{customer.email}</p>
                   </td>
-                  <td className="whitespace-nowrap">{customer.phone ? formatPhone(customer.phone) : "—"}</td>
-                  <td className="whitespace-nowrap">{formatDate(customer.createdAt)}</td>
-                  <td className="text-right tabular-nums">
+                  <td data-label="Telefone" className="whitespace-nowrap">{customer.phone ? formatPhone(customer.phone) : "—"}</td>
+                  <td data-label="Cadastro" className="whitespace-nowrap">{formatDate(customer.createdAt)}</td>
+                  <td data-label="Pedidos" className="text-right tabular-nums">
                     {customer.ordersCount > 0 ? (
                       <Link href={buildHref("/admin/pedidos", { q: customer.email })}>{customer.ordersCount}</Link>
                     ) : (
                       0
                     )}
                   </td>
-                  <td className="whitespace-nowrap text-right tabular-nums">{formatBRL(customer.totalSpentCents)}</td>
-                  <td>{customer.active ? <Badge tone="success">Ativa</Badge> : <Badge tone="danger">Desativada</Badge>}</td>
-                  <td>
+                  <td data-label="Total comprado" className="whitespace-nowrap text-right tabular-nums">{formatBRL(customer.totalSpentCents)}</td>
+                  <td data-label="Conta">{customer.active ? <Badge tone="success">Ativa</Badge> : <Badge tone="danger">Desativada</Badge>}</td>
+                  <td data-label="">
                     <div className="flex flex-col items-start gap-2">
                       <CustomerToggle userId={customer.id} active={customer.active} name={customer.name} />
                       <CustomerResetLink userId={customer.id} name={customer.name} disabled={!customer.active} />

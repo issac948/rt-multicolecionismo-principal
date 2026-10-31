@@ -32,12 +32,13 @@ async function processImage(input: Buffer, largeSide: number, thumbSide: number)
     const large = await base
       .clone()
       .resize({ width: largeSide, height: largeSide, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 82 })
+      // smartSubsample mantém o contraste de cor nas bordas (vermelho/branco das pinturas), custa ~5% a mais de espaço.
+      .webp({ quality: 80, smartSubsample: true })
       .toBuffer({ resolveWithObject: true });
     const thumb = await base
       .clone()
       .resize({ width: thumbSide, height: thumbSide, fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 78 })
+      .webp({ quality: 76, smartSubsample: true })
       .toBuffer();
 
     return { large: large.data, thumb, width: large.info.width, height: large.info.height };
@@ -51,16 +52,16 @@ export type SavedProductImage = { id: string; url: string; thumbUrl: string; wid
 
 /** Salva uma foto de produto. Ela fica "solta" (sem produto) até o formulário ser salvo. */
 export async function saveProductImage(input: Buffer): Promise<SavedProductImage> {
-  const { large, thumb, width, height } = await processImage(input, 1600, 480);
+  const { large, thumb, width, height } = await processImage(input, 1400, 560);
   const storage = getStorage();
   const id = randomUUID();
   const storageKey = `products/${id}.webp`;
   const thumbKey = `products/${id}-thumb.webp`;
 
-  await storage.put(storageKey, large, "image/webp");
-  await storage.put(thumbKey, thumb, "image/webp");
-
+  // Se QUALQUER passo falhar (espaço esgotado na segunda foto, erro no banco), nada fica pela metade guardado.
   try {
+    await storage.put(storageKey, large, "image/webp");
+    await storage.put(thumbKey, thumb, "image/webp");
     await db.insert(productImages).values({ id, storageKey, thumbKey, width, height, position: 0 });
   } catch (error) {
     await Promise.allSettled([storage.delete(storageKey), storage.delete(thumbKey)]);
@@ -77,6 +78,15 @@ export async function saveLogoImage(input: Buffer): Promise<{ key: string; url: 
   const key = `branding/${randomUUID()}.webp`;
   await storage.put(key, large, "image/webp");
   return { key, url: storage.publicUrl(key) };
+}
+
+/** Salva a foto de um evento/modelo e devolve só a chave (guardada na própria linha do evento). */
+export async function saveEventImage(input: Buffer): Promise<{ key: string; url: string; width: number; height: number }> {
+  const { large, width, height } = await processImage(input, 1200, 480);
+  const storage = getStorage();
+  const key = `events/${randomUUID()}.webp`;
+  await storage.put(key, large, "image/webp");
+  return { key, url: storage.publicUrl(key), width, height };
 }
 
 /** Apaga os arquivos de imagens (usado depois que as linhas do banco já foram removidas). */

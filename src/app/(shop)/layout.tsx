@@ -28,8 +28,10 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
         {children}
       </main>
       <SiteFooter settings={settings} />
-      <WhatsAppButton settings={settings} />
-      {assistantOn && <ShopAssistant whatsappNumber={settings.whatsapp} stacked={Boolean(settings.whatsapp)} />}
+      <aside aria-label="Atendimento rápido">
+        <WhatsAppButton settings={settings} />
+        {assistantOn && <ShopAssistant whatsappNumber={settings.whatsapp} stacked={Boolean(settings.whatsapp)} />}
+      </aside>
     </>
   );
 }

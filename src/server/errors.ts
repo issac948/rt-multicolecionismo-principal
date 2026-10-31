@@ -78,6 +78,13 @@ export class RateLimitError extends AppError {
   }
 }
 
+/** Limite de espaço para fotos atingido (nunca deixa as fotos encherem o banco). */
+export class StorageQuotaError extends AppError {
+  constructor(message: string) {
+    super(message, "STORAGE_FULL", 507);
+  }
+}
+
 /** Erro de configuração/serviço externo (ex.: gateway de pagamento fora do ar). */
 export class ExternalServiceError extends AppError {
   constructor(message: string) {

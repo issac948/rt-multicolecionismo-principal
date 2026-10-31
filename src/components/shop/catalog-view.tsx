@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState, Pagination, buildHref } from "@/components/ui";
+import { FilterPanel } from "@/components/shop/filter-panel";
 import { ProductGrid } from "@/components/shop/product-card";
 import { toProductFilters, type CatalogParams } from "@/server/catalog-params";
 import { PRODUCT_CONDITION_LABEL } from "@/lib/constants";
@@ -72,12 +73,9 @@ export async function CatalogView({
     });
 
   return (
-    <div>
-      <details className="mb-6 rounded-md bg-panel p-4" open={activeFilters > 0}>
-        <summary className="cursor-pointer font-bold">
-          Filtrar e ordenar{activeFilters > 0 ? ` (${activeFilters} ativo${activeFilters > 1 ? "s" : ""})` : ""}
-        </summary>
-        <form method="get" action={basePath} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="lg:grid lg:grid-cols-[16.5rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+      <FilterPanel activeCount={activeFilters}>
+        <form method="get" action={basePath} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
           {params.q && <input type="hidden" name="q" value={params.q} />}
           <div>
             <label htmlFor="f-ordem" className="label">
@@ -199,7 +197,7 @@ export async function CatalogView({
               <input type="checkbox" name="estoque" value="1" defaultChecked={params.inStock} className="checkbox" /> Só com estoque
             </label>
           </div>
-          <div className="flex gap-3 sm:col-span-2 lg:col-span-3">
+          <div className="flex gap-3 sm:col-span-2 lg:col-span-1">
             <button type="submit" className="btn btn-dark">
               Aplicar
             </button>
@@ -210,29 +208,32 @@ export async function CatalogView({
             )}
           </div>
         </form>
-      </details>
+      </FilterPanel>
 
-      <p className="mb-4 text-ink-soft" aria-live="polite">
-        {result.total === 0 ? "Nenhum produto" : `${result.total} produto${result.total > 1 ? "s" : ""}`}
-        {result.pages > 1 ? `, página ${result.page} de ${result.pages}` : ""}
-      </p>
+      <div className="min-w-0">
+        <h2 className="sr-only">Produtos</h2>
+        <p className="mb-4 text-ink-soft" aria-live="polite">
+          {result.total === 0 ? "Nenhum produto" : `${result.total} produto${result.total > 1 ? "s" : ""}`}
+          {result.pages > 1 ? `, página ${result.page} de ${result.pages}` : ""}
+        </p>
 
-      {result.items.length === 0 ? (
-        <EmptyState
-          title={emptyTitle}
-          action={
-            <Link href="/produtos" className="btn btn-primary">
-              Ver todos os produtos
-            </Link>
-          }
-        >
-          Tente outras palavras ou remova algum filtro.
-        </EmptyState>
-      ) : (
-        <ProductGrid products={result.items} />
-      )}
+        {result.items.length === 0 ? (
+          <EmptyState
+            title={emptyTitle}
+            action={
+              <Link href="/produtos" className="btn btn-primary">
+                Ver todos os produtos
+              </Link>
+            }
+          >
+            Tente outras palavras ou remova algum filtro.
+          </EmptyState>
+        ) : (
+          <ProductGrid products={result.items} layout="sidebar" />
+        )}
 
-      <Pagination page={result.page} pages={result.pages} hrefFor={hrefFor} />
+        <Pagination page={result.page} pages={result.pages} hrefFor={hrefFor} />
+      </div>
     </div>
   );
 }

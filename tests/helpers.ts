@@ -28,6 +28,9 @@ const TABLES = [
   "sessions",
   "users",
   "settings",
+  "events",
+  "event_templates",
+  "stored_files",
 ];
 
 /**

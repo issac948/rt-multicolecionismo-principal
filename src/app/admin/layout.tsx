@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { after } from "next/server";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ExternalLink } from "lucide-react";
@@ -6,6 +7,7 @@ import { AdminNav } from "@/components/admin/admin-nav";
 import { logoutAction } from "@/server/actions/auth";
 import { requireAdminPage } from "@/server/auth/current-user";
 import { BrandMark } from "@/components/brand";
+import { runMaintenanceIfDue } from "@/server/services/maintenance";
 import { getSettings } from "@/server/services/settings";
 import { fileUrl } from "@/server/storage";
 
@@ -21,6 +23,9 @@ export const metadata: Metadata = {
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const admin = await requireAdminPage();
   const settings = await getSettings();
+  // Rede de segurança: quando o dono abre o painel (nunca em visitas de clientes), a manutenção roda depois da página responder,
+  // no máximo a cada 10 minutos. O normal é o agendador do Netlify (netlify/functions/manutencao.mts) cuidar disso.
+  if (process.env.NODE_ENV !== "test" && process.env.NEXT_PHASE !== "phase-production-build") after(() => runMaintenanceIfDue());
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[15rem_1fr]">

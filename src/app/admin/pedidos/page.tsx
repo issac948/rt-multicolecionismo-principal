@@ -74,7 +74,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
         </EmptyState>
       ) : (
         <div className="table-wrap">
-          <table className="table">
+          <table className="table table-cards">
             <thead>
               <tr>
                 <th scope="col">Pedido</th>
@@ -91,7 +91,7 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             <tbody>
               {result.rows.map((order) => (
                 <tr key={order.id}>
-                  <td>
+                  <td data-primary>
                     <Link href={`/admin/pedidos/${order.id}`} className="font-bold">
                       #{order.number}
                     </Link>
@@ -101,19 +101,19 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
                       </span>
                     )}
                   </td>
-                  <td>
+                  <td data-label="Cliente">
                     {order.customerName}
                     <span className="block text-xs text-ink-soft">{order.customerEmail}</span>
                   </td>
-                  <td className="whitespace-nowrap">{formatDateTime(order.createdAt)}</td>
-                  <td>
+                  <td data-label="Data" className="whitespace-nowrap">{formatDateTime(order.createdAt)}</td>
+                  <td data-label="Status">
                     <OrderStatusBadge status={order.status} />
                   </td>
-                  <td>
+                  <td data-label="Pagamento">
                     <PaymentStatusBadge status={order.paymentStatus} />
                   </td>
-                  <td>{order.shippingMethodLabel}</td>
-                  <td className="whitespace-nowrap text-right tabular-nums">{formatBRL(order.totalCents)}</td>
+                  <td data-label="Entrega">{order.shippingMethodLabel}</td>
+                  <td data-label="Total" className="whitespace-nowrap text-right tabular-nums">{formatBRL(order.totalCents)}</td>
                 </tr>
               ))}
             </tbody>

@@ -17,6 +17,7 @@ import { BusinessRuleError, RateLimitError } from "../errors";
 import { checkRateLimit } from "../security/rate-limit";
 import { createCategory, deleteCategory, ensureSuggestedCategories, listCategories, updateCategory } from "../services/categories";
 import { removeDemoProducts } from "../services/demo";
+import { describeMaintenance, runMaintenance } from "../services/maintenance";
 import { createPasswordResetLink } from "../services/password-reset";
 import { adjustStock } from "../services/inventory";
 import { refundOrder } from "../services/payments";
@@ -39,7 +40,7 @@ export async function saveProductAction(_prev: FormState, fd: FormData): Promise
 
     // Os botões "Publicar" e "Salvar rascunho" decidem se o produto aparece na loja.
     const intent = formString(fd, "intent");
-    const data = intent === "publish" ? { ...parsed.data, active: true } : intent === "draft" ? { ...parsed.data, active: false } : parsed.data;
+    const data = intent === "publish" ? { ...parsed.data, active: true } : intent === "draft" || intent === "draft-another" ? { ...parsed.data, active: false } : parsed.data;
 
     const productId = formString(fd, "productId");
     if (productId) {
@@ -54,7 +55,8 @@ export async function saveProductAction(_prev: FormState, fd: FormData): Promise
     }
 
     const created = await createProduct(data, admin.id);
-    destination = `/admin/produtos/${created.id}?criado=${created.active ? "publicado" : "rascunho"}`;
+    // "Salvar e cadastrar outro": volta ao formulário em branco, já com categoria, marca, escala e condição do produto salvo.
+    destination = intent === "draft-another" ? `/admin/produtos/novo?base=${created.id}` : `/admin/produtos/${created.id}?criado=${created.active ? "publicado" : "rascunho"}`;
   } catch (error) {
     return failure(error);
   }
@@ -155,6 +157,23 @@ export async function removeDemoProductsAction(_prev: FormState, _fd: FormData):
       result.categoriesDeleted > 0 ? `${result.categoriesDeleted} categoria(s) antiga(s) vazia(s) removida(s)` : "",
     ].filter(Boolean);
     return { ok: true, message: parts.length > 0 ? `Produtos de demonstração: ${parts.join(", ")}.` : "Não havia produtos de demonstração." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/* ------------------------------ Manutenção ------------------------------ */
+
+/** Botão "Executar manutenção agora" do Resumo: faz o mesmo que o agendador (pedidos vencidos + limpeza). */
+export async function runMaintenanceNowAction(): Promise<FormState> {
+  try {
+    const admin = await requireAdminAction();
+    const limit = checkRateLimit(`manutencao:${admin.id}`, 5, 60 * 1000);
+    if (!limit.ok) throw new RateLimitError(limit.retryAfterSeconds);
+    const report = await runMaintenance("painel");
+    revalidatePath("/admin/dashboard");
+    revalidatePath("/admin/pedidos");
+    return { ok: true, message: describeMaintenance(report) };
   } catch (error) {
     return failure(error);
   }

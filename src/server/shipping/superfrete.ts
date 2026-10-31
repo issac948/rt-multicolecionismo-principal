@@ -269,12 +269,7 @@ export async function calculateSuperFrete(params: CalculateParams): Promise<Serv
     throw new ShippingServiceError("A SuperFrete devolveu uma resposta que não é JSON.", "invalid");
   }
 
-  console.info(
-  "[frete] resposta bruta da SuperFrete:",
-  JSON.stringify(json).slice(0, 5000),
-);
-
-const quotes = parseSuperFreteResponse(json, params.services);
+  const quotes = parseSuperFreteResponse(json, params.services);
   if (useCache) {
     if (cache.size >= CACHE_MAX_ENTRIES) {
       const oldest = cache.keys().next().value;
@@ -357,13 +352,7 @@ export class SuperFreteShippingProvider implements ShippingProvider {
         destinationCep,
         pkg: pkg.package,
         services,
-        // PAC e SEDEX exigem valor segurado mínimo de R$ 25,63.
-// Não inventamos nem aumentamos o valor declarado: abaixo do mínimo,
-// consultamos o frete sem contratar o seguro nesta cotação.
-insuranceCents:
-  cfg.declareValue && input.subtotalCents >= 2563
-    ? input.subtotalCents
-    : null,
+        insuranceCents: cfg.declareValue ? Math.max(input.subtotalCents, 0) : null,
         appLabel: appLabel(settings),
       });
       return { options: quotesToOptions(quotes, input, settings), notice: null, source: "superfrete" };

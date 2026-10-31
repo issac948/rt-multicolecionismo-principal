@@ -17,10 +17,17 @@ export function SiteFooter({ settings }: { settings: StoreSettings }) {
         <div>
           <div className="flex items-center gap-3">
             <BrandMark size={72} customSrc={fileUrl(settings.logoKey)} />
-            <p className="brand-script text-3xl leading-none">{settings.storeName}</p>
+            {/* Em telas de 320 px o nome (fonte cursiva, palavra longa) não cabe ao lado do logo em 30 px: reduz um pouco e deixa o texto
+                encolher/quebrar, para a página nunca ganhar rolagem lateral, nem enquanto a fonte da web ainda não carregou. */}
+            <p className="brand-script min-w-0 text-[1.625rem] leading-none [overflow-wrap:anywhere] min-[360px]:text-3xl">{settings.storeName}</p>
           </div>
           {settings.description && <p className="mt-4 text-white/80 max-w-[40ch]">{settings.description}</p>}
           {settings.fairsNote && <p className="mt-3 text-sm text-white/65 max-w-[40ch]">{settings.fairsNote}</p>}
+          <p className="mt-2">
+            <Link href="/eventos" className="text-white">
+              Ver o calendário de eventos
+            </Link>
+          </p>
         </div>
 
         {hasContact && (

@@ -68,8 +68,8 @@ export const storeSettingsSchema = z.object({
   phone: optionalPhoneDigitsWithDefault(OWNER_CONTACT.phone),
   addressText: z.string().trim().max(300, "Endereço muito longo (máx. 300)").default(""),
   businessHours: z.string().trim().max(200, "Horário muito longo (máx. 200)").default(""),
-  /** Aviso sobre vendas em feiras (aparece no rodapé e na página inicial). Em branco = não aparece. */
-  fairsNote: z.string().trim().max(200, "Texto muito longo (máx. 200)").default("Além da loja online, também vendemos em feiras, em Curitiba."),
+  /** Aviso sobre eventos (aparece no rodapé e junto do calendário de eventos). Em branco = não aparece. (O nome interno "fairsNote" é antigo e foi mantido para não exigir migração.) */
+  fairsNote: z.string().trim().max(200, "Texto muito longo (máx. 200)").default("Além da loja online, também participamos de eventos, em Curitiba."),
   /** Mostra o assistente de compras (IA) na loja. Só aparece de fato se a chave de IA estiver configurada no servidor. */
   shopAssistantEnabled: z.boolean().default(true),
   shipping: z

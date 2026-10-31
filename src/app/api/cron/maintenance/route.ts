@@ -22,7 +22,7 @@ async function handle(request: Request) {
   if (!authorized(request, cronSecret)) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
-  return NextResponse.json({ ok: true, report: await runMaintenance() });
+  return NextResponse.json({ ok: true, report: await runMaintenance("agendador") });
 }
 
 export const GET = handle;

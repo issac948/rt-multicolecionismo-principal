@@ -13,6 +13,10 @@ import { getPaymentProvider, isPaymentConfigured } from "@/server/payments";
 import { isSuperFreteConfigured } from "@/server/shipping/superfrete";
 import { getDashboardStats } from "@/server/services/dashboard";
 import { DemoRemoveButton } from "@/components/admin/demo-remove-button";
+import { MaintenanceButton } from "@/components/admin/maintenance-button";
+import { getMaintenanceStatus } from "@/server/services/maintenance";
+import { formatMb, getStorageUsage, usageLevel } from "@/server/storage/usage";
+import { storageConfigProblem } from "@/server/storage";
 import { listCategories } from "@/server/services/categories";
 import { countDemoProducts } from "@/server/services/demo";
 import { getSettings, hasSavedSettings } from "@/server/services/settings";
@@ -21,7 +25,14 @@ export const metadata: Metadata = { title: "Resumo" };
 
 export default async function DashboardPage() {
   await requireAdminPage("/admin/dashboard");
-  const [stats, settingsSaved, settings, demo] = await Promise.all([getDashboardStats(), hasSavedSettings(), getSettings(), countDemoProducts()]);
+  const [stats, settingsSaved, settings, demo, maintenance, usage] = await Promise.all([
+    getDashboardStats(),
+    hasSavedSettings(),
+    getSettings(),
+    countDemoProducts(),
+    getMaintenanceStatus(),
+    getStorageUsage(),
+  ]);
 
   const env = getEnv();
   const todos: Array<{ text: string; href?: string }> = [];
@@ -63,6 +74,29 @@ export default async function DashboardPage() {
   }
   if (stats.ordersNeedingAttention > 0) {
     todos.push({ text: `${stats.ordersNeedingAttention} pedido(s) com aviso que precisa da sua atenção.`, href: "/admin/pedidos?atencao=1" });
+  }
+
+  // Fotos e espaço do banco: banco cheio = pedidos deixam de ser gravados, então o aviso vem cedo.
+  const storageProblem = storageConfigProblem();
+  if (storageProblem) todos.push({ text: storageProblem });
+  if (env.isServerless && usage.driver === "local") {
+    todos.push({ text: "As fotos estão configuradas para ficar em disco local (STORAGE_DRIVER=local), mas a hospedagem apaga o disco a cada publicação: as fotos enviadas seriam perdidas." });
+  }
+  const dbLevel = usageLevel(usage.databaseBytes, usage.databaseLimitBytes);
+  if (dbLevel !== "ok") {
+    todos.push({
+      text: `O banco de dados está em ${formatMb(usage.databaseBytes)} de ${formatMb(usage.databaseLimitBytes)} do plano (${dbLevel === "danger" ? "quase cheio: pedidos podem deixar de ser gravados" : "acima de 70%"}). Veja o espaço das fotos abaixo.`,
+    });
+  }
+  if (usage.driver === "database" && usageLevel(usage.photoBytes, usage.photoLimitBytes) !== "ok") {
+    todos.push({ text: `As fotos usam ${formatMb(usage.photoBytes)} de ${formatMb(usage.photoLimitBytes)} reservados. Ao encher, novos envios de foto são bloqueados.` });
+  }
+  const lastRunAgeMs = maintenance.lastRunAt ? Date.now() - maintenance.lastRunAt.getTime() : null;
+  if (maintenance.overdueUnpaidOrders > 0 && (lastRunAgeMs === null || lastRunAgeMs > 3 * 60 * 60 * 1000)) {
+    todos.push({ text: `${maintenance.overdueUnpaidOrders} pedido(s) não pago(s) com prazo vencido ainda seguram estoque: a manutenção automática não rodou. Use o botão "Executar manutenção agora" abaixo.` });
+  }
+  if (env.isServerless && env.cronSecret.length < 16) {
+    todos.push({ text: "Falta o CRON_SECRET (variável de ambiente do Netlify): sem ele o agendador automático de manutenção não funciona." });
   }
   const ai = aiStatus();
 
@@ -130,6 +164,37 @@ export default async function DashboardPage() {
           note={ai.configured ? `Provedor: ${ai.provider}` : "Precisa de chave no servidor"}
           href="/admin/ia"
         />
+      </div>
+
+      <div className="mt-6">
+        <SectionPanel title="Sistema" id="titulo-sistema">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <h3 className="text-lg">Manutenção automática</h3>
+              <p className="mt-1 text-sm text-ink-soft">
+                {maintenance.lastRunAt
+                  ? `Última execução: ${formatDateTime(maintenance.lastRunAt)} (${maintenance.source === "agendador" ? "agendador" : maintenance.source === "painel" ? "botão do painel" : maintenance.source === "sob-demanda" ? "ao abrir o painel" : "terminal"}).`
+                  : "Ainda não rodou."}{" "}
+                Cancela pedidos não pagos com prazo vencido (devolvendo o estoque) e limpa sessões, fotos abandonadas e registros antigos. Pedidos pagos nunca são alterados.
+              </p>
+              <MaintenanceButton />
+            </div>
+            <div>
+              <h3 className="text-lg">Espaço do banco de dados</h3>
+              <p className="mt-1 text-sm text-ink-soft">
+                Banco: <strong>{formatMb(usage.databaseBytes)}</strong> de {formatMb(usage.databaseLimitBytes)} do plano (informado em DATABASE_PLAN_LIMIT_MB).
+              </p>
+              {usage.driver === "database" ? (
+                <p className="mt-1 text-sm text-ink-soft">
+                  Fotos no banco: <strong>{formatMb(usage.photoBytes)}</strong> de {formatMb(usage.photoLimitBytes)} reservados ({usage.files} arquivos
+                  {usage.byPrefix.length > 0 ? `: ${usage.byPrefix.map((r) => `${r.prefix} ${r.files}`).join(", ")}` : ""}).
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-ink-soft">Fotos guardadas em: {usage.driver === "s3" ? "armazenamento externo" : "pasta do servidor"}.</p>
+              )}
+            </div>
+          </div>
+        </SectionPanel>
       </div>
 
       <div className="mt-6">
@@ -201,7 +266,7 @@ export default async function DashboardPage() {
             <p className="text-ink-soft">Nenhum pedido ainda.</p>
           ) : (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table table-cards">
                 <thead>
                   <tr>
                     <th scope="col">Pedido</th>
@@ -216,17 +281,17 @@ export default async function DashboardPage() {
                 <tbody>
                   {stats.recentOrders.map((order) => (
                     <tr key={order.id}>
-                      <td>
+                      <td data-primary>
                         <Link href={`/admin/pedidos/${order.id}`} className="font-bold">
                           #{order.number}
                         </Link>
                       </td>
-                      <td>{order.customerName}</td>
-                      <td className="whitespace-nowrap">{formatDateTime(order.createdAt)}</td>
-                      <td>
+                      <td data-label="Cliente">{order.customerName}</td>
+                      <td data-label="Data" className="whitespace-nowrap">{formatDateTime(order.createdAt)}</td>
+                      <td data-label="Status">
                         <OrderStatusBadge status={order.status} />
                       </td>
-                      <td className="text-right tabular-nums">{formatBRL(order.totalCents)}</td>
+                      <td data-label="Total" className="text-right tabular-nums">{formatBRL(order.totalCents)}</td>
                     </tr>
                   ))}
                 </tbody>

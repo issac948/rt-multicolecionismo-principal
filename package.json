@@ -2,7 +2,7 @@
   "name": "loja-carrinhos",
   "version": "1.0.0",
   "private": true,
-  "description": "Loja virtual de carrinhos com painel administrativo, estoque, pagamento (Mercado Pago) e assistente de IA.",
+  "description": "Loja virtual da RT Multicolecionismo (miniaturas de carros e colecionáveis): vitrine, carrinho, pagamento (PayPal, InfinitePay, Mercado Pago), frete, calendário de eventos, painel administrativo e assistente de IA.",
   "engines": {
     "node": ">=22"
   },
@@ -11,25 +11,26 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
+    "test": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs run",
+    "test:watch": "node --env-file-if-exists=.env ./node_modules/vitest/vitest.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --env-file-if-exists=.env scripts/migrate.ts",
     "db:seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
     "admin:create": "tsx --env-file-if-exists=.env scripts/create-admin.ts",
-    "maintenance": "tsx --env-file-if-exists=.env scripts/maintenance.ts"
+    "maintenance": "tsx --env-file-if-exists=.env scripts/maintenance.ts",
+    "storage:migrate": "tsx --env-file-if-exists=.env scripts/storage-migrate.ts"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.3.0",
     "@fontsource/lobster": "^5.3.0",
     "drizzle-orm": "0.45.3",
     "lucide-react": "1.52.0",
-    "next": "16.4.0",
+    "next": "16.4.3",
     "pg": "8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "sharp": "0.35.5",
-    "zod": "4.6.5"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.3.3",

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Boxes,
+  CalendarDays,
   ClipboardList,
   Layers,
   Package,
@@ -21,6 +22,7 @@ const ITEMS: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/admin/produtos", label: "Produtos", icon: Package },
   { href: "/admin/categorias", label: "Categorias", icon: Layers },
   { href: "/admin/estoque", label: "Estoque", icon: Boxes },
+  { href: "/admin/eventos", label: "Eventos", icon: CalendarDays },
   { href: "/admin/clientes", label: "Clientes", icon: Users },
   { href: "/admin/ia", label: "Assistente de IA", icon: Sparkles },
   { href: "/admin/configuracoes", label: "Configurações", icon: Settings },

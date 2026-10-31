@@ -5,7 +5,7 @@ import { conditionLabel } from "@/lib/collectibles";
 import type { ProductWithRelations } from "@/server/services/products";
 import { fileUrl } from "@/server/storage";
 
-export function ProductCard({ product }: { product: ProductWithRelations }) {
+export function ProductCard({ product, priority = false }: { product: ProductWithRelations; priority?: boolean }) {
   const image = product.images[0];
   const soldOut = product.stock <= 0;
   const low = !soldOut && product.stock <= product.lowStockThreshold;
@@ -17,7 +17,15 @@ export function ProductCard({ product }: { product: ProductWithRelations }) {
       <div className="product-card__media">
         {image ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={fileUrl(image.thumbKey) ?? ""} alt={image.alt || product.name} loading="lazy" />
+          <img
+            src={fileUrl(image.thumbKey) ?? ""}
+            alt={image.alt || product.name}
+            loading={priority ? "eager" : "lazy"}
+            fetchPriority={priority ? "high" : "auto"}
+            decoding="async"
+            width={560}
+            height={420}
+          />
         ) : (
           <NoPhoto />
         )}
@@ -29,21 +37,32 @@ export function ProductCard({ product }: { product: ProductWithRelations }) {
           </div>
         )}
       </div>
-      {meta && <p className="-mb-1.5 text-[0.8125rem] font-bold uppercase tracking-wide text-ink-soft">{meta}</p>}
+      {meta && <p className="product-card__meta">{meta}</p>}
       <h3 className="product-card__name">{product.name}</h3>
-      <div>
+      <div className="product-card__price">
         <PriceTag product={product} />
       </div>
     </Link>
   );
 }
 
-export function ProductGrid({ products }: { products: ProductWithRelations[] }) {
+/**
+ * Lista de produtos. `rail`: no celular vira uma faixa que rola de lado (grade normal a partir de 640 px);
+ * sem `rail`, grade de 2 colunas no celular (`layout="four"`: já com 4 colunas no tablet, para listas de 4 itens não deixarem um sozinho na linha; `"sidebar"`: ao lado dos filtros). `priorityCount` carrega as primeiras fotos sem esperar (acima da dobra).
+ */
+const GRID_COLUMNS = {
+  default: "md:grid-cols-3 lg:grid-cols-4",
+  four: "md:grid-cols-4",
+  // Ao lado da coluna de filtros (a partir de 1024 px) sobra menos largura.
+  sidebar: "md:grid-cols-3 xl:grid-cols-4",
+} as const;
+
+export function ProductGrid({ products, rail = false, priorityCount = 0, layout = "default" }: { products: ProductWithRelations[]; rail?: boolean; priorityCount?: number; layout?: "default" | "four" | "sidebar" }) {
   return (
-    <ul className="grid grid-cols-2 gap-x-4 gap-y-8 md:grid-cols-3 lg:grid-cols-4">
-      {products.map((product) => (
+    <ul className={rail ? "rail" : `grid grid-cols-2 gap-x-4 gap-y-8 ${GRID_COLUMNS[layout]}`}>
+      {products.map((product, index) => (
         <li key={product.id}>
-          <ProductCard product={product} />
+          <ProductCard product={product} priority={index < priorityCount} />
         </li>
       ))}
     </ul>
