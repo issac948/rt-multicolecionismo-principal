@@ -2,6 +2,7 @@ import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { BRAZIL_STATES, MAX_PRICE_CENTS } from "@/lib/constants";
+import { isSafeCampaignLink } from "@/lib/campaign";
 import { onlyDigits } from "@/lib/text";
 import { db } from "../db";
 import { settings } from "../db/schema";
@@ -135,7 +136,34 @@ export const storeSettingsSchema = z.object({
       boleto: z.boolean().default(false),
       maxInstallments: z.number().int().min(1).max(12).default(1),
       /** Tempo que o cliente tem para pagar antes de o pedido ser cancelado e o estoque liberado. */
-      windowMinutes: z.number().int().min(15).max(4320).default(120),
+      windowMinutes: z.number().int().min(15).max(4320).default(45),
+    })
+    .prefault({}),
+  /** Campanha (ex.: Black Friday): faixa no topo com contagem por data real. Desligada por padrão; some sozinha depois do fim. */
+  campaign: z
+    .object({
+      enabled: z.boolean().default(false),
+      mode: z.enum(["auto", "on", "off"]).default("auto"),
+      name: z.string().trim().min(1, "Informe o nome da campanha").max(40, "Nome muito longo (máx. 40)").default("Black Friday"),
+      /** Texto da faixa durante a campanha. */
+      headline: z.string().trim().max(100, "Texto muito longo (máx. 100)").default(""),
+      /** Texto da faixa antes do início (contagem para começar). */
+      teaser: z.string().trim().max(100, "Texto muito longo (máx. 100)").default(""),
+      /** Datas em ISO (UTC); o painel digita em horário de Brasília. */
+      startsAt: z.string().nullable().default(null).refine((v) => v === null || !Number.isNaN(Date.parse(v)), "Data de início inválida"),
+      endsAt: z.string().nullable().default(null).refine((v) => v === null || !Number.isNaN(Date.parse(v)), "Data de fim inválida"),
+      ctaLabel: z.string().trim().max(30, "Texto do botão muito longo (máx. 30)").default("Ver ofertas"),
+      ctaHref: z
+        .string()
+        .trim()
+        .max(300)
+        .default("/produtos?promocao=1")
+        .refine((v) => isSafeCampaignLink(v), "Use um endereço do site (começando com /) ou https://"),
+      teaserHours: z.number().int().min(0).max(720).default(0),
+    })
+    .refine((c) => c.startsAt === null || c.endsAt === null || Date.parse(c.endsAt) > Date.parse(c.startsAt), {
+      message: "O fim da campanha precisa ser depois do início",
+      path: ["endsAt"],
     })
     .prefault({}),
 });

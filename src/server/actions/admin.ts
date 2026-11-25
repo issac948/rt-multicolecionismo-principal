@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { ORDER_STATUSES } from "@/lib/constants";
+import { parseBrLocal } from "@/lib/datetime-br";
 import { formBool, formInt, formString, parseProductForm } from "@/lib/forms";
 import { onlyDigits } from "@/lib/text";
 import { parseMoneyToCents } from "@/lib/money";
@@ -333,6 +334,11 @@ export async function saveSettingsAction(_prev: FormState, fd: FormData): Promis
     const boleto = formBool(fd, "payBoleto");
     if (!pix && !card && !boleto) errors.payPix = "Ative pelo menos uma forma de pagamento.";
 
+    const campStart = parseBrLocal(formString(fd, "campStarts"));
+    if (campStart === undefined) errors.campaignStartsAt = "Data de início inválida";
+    const campEnd = parseBrLocal(formString(fd, "campEnds"));
+    if (campEnd === undefined) errors.campaignEndsAt = "Data de fim inválida";
+
     const parsed = storeSettingsSchema.safeParse({
       storeName: formString(fd, "storeName") ?? "",
       tagline: formString(fd, "tagline") ?? "",
@@ -380,7 +386,19 @@ export async function saveSettingsAction(_prev: FormState, fd: FormData): Promis
         card,
         boleto,
         maxInstallments: formInt(fd, "payMaxInstallments") ?? 1,
-        windowMinutes: formInt(fd, "payWindowMinutes") ?? 120,
+        windowMinutes: formInt(fd, "payWindowMinutes") ?? 45,
+      },
+      campaign: {
+        enabled: formString(fd, "campMode") !== "off",
+        mode: formString(fd, "campMode") === "on" ? "on" : formString(fd, "campMode") === "off" ? "off" : "auto",
+        name: formString(fd, "campName") || undefined,
+        headline: formString(fd, "campHeadline") ?? "",
+        teaser: formString(fd, "campTeaser") ?? "",
+        startsAt: campStart ? campStart.toISOString() : null,
+        endsAt: campEnd ? campEnd.toISOString() : null,
+        ctaLabel: fd.has("campCtaLabel") ? (formString(fd, "campCtaLabel") ?? "") : undefined,
+        ctaHref: fd.has("campCtaHref") ? (formString(fd, "campCtaHref") ?? "") : undefined,
+        teaserHours: formInt(fd, "campTeaserHours") ?? 0,
       },
     });
 

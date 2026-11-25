@@ -1,0 +1,26 @@
+SITE COMPLETO - RT Multicolecionismo (revisao final de 24/11/2026)
+
+Projeto inteiro (codigo do seu GitHub + todas as melhorias). Sem node_modules, .env, .git nem fotos enviadas.
+VERSAO PRINCIPAL: Next.js 16.4.6 (package.json e package-lock.json). O repositorio estava em 16.4.3; e troca so de patch.
+Para voltar atras: restaure package.json e package-lock.json do seu repositorio e rode npm.cmd ci.
+
+BANCO DE DADOS: o banco que voce ja usa NAO e substituido; esta versao usa o MESMO banco. Ela precisa de 2 migracoes novas
+que so ADICIONAM tabelas/colunas (0006 promocoes/historico de precos; 0007 cupons). Produtos, pedidos e clientes continuam la.
+Ensaiado num banco descartavel com dados: nada se perdeu e a promocao manual existente foi preservada.
+Passos (PowerShell, na pasta do projeto; a DATABASE_URL de producao so na sessao, nunca em arquivo do Git):
+  1) npm.cmd ci
+  2) npm.cmd run backup
+  3) npm.cmd run db:check                      (somente leitura)
+  4) npm.cmd run db:migrate -- --simular       (mostra o que seria aplicado)
+  5) npm.cmd run db:migrate -- --confirmar=<nome do banco>   (aplica, so depois do backup)
+NUNCA use "db:seed -- --reset". Nunca apague/recrie o banco.
+
+VARIAVEIS (InfinitePay, SuperFrete, IA, manutencao): npm.cmd run env:check  -> diz o que falta, sem mostrar segredos.
+No Netlify, SITE_URL precisa ser https://rtmulticolecionismo.com.br (senao o cookie de login nao fica "secure").
+Checklist de teste real: DEPLOYMENT.md, secao "Checklist de integracoes".
+
+TESTE LOCAL: npm.cmd run check:repo ; npm.cmd test ; npm.cmd run build   (testes usam banco *_test, nunca o real)
+Resultados da revisao: veja STATUS.md, secao "Revisao final de 24/11".
+
+Nada foi publicado; nenhuma variavel/dominio mudou. Deploy so quando voce autorizar.
+NAO VALIDADO com contas reais: InfinitePay, SuperFrete, IA, Telegram, ViaCEP, celulares reais, Netlify.

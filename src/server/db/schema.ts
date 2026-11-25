@@ -170,7 +170,12 @@ export const products = pgTable(
     description: text("description").notNull().default(""),
     /** Todos os valores em centavos (inteiros) para evitar erro de arredondamento. */
     priceCents: integer("price_cents").notNull(),
+    /** Preço promocional EM VIGOR agora (é o que a loja lê). Mantido a partir de `promoPriceCents` e da janela de datas. */
     salePriceCents: integer("sale_price_cents"),
+    /** Promoção configurada no painel; entra em `salePriceCents` quando a janela (início/fim, ambos opcionais) está aberta. */
+    promoPriceCents: integer("promo_price_cents"),
+    saleStartsAt: timestamp("sale_starts_at", { withTimezone: true }),
+    saleEndsAt: timestamp("sale_ends_at", { withTimezone: true }),
     /** Estoque atual. A única forma de alterá-lo é pelo serviço de estoque (com histórico). */
     stock: integer("stock").notNull().default(0),
     lowStockThreshold: integer("low_stock_threshold").notNull().default(3),
@@ -217,6 +222,8 @@ export const products = pgTable(
       "products_sale_lt_price",
       sql`${t.salePriceCents} IS NULL OR (${t.salePriceCents} >= 0 AND ${t.salePriceCents} < ${t.priceCents})`,
     ),
+    check("products_promo_lt_price", sql`${t.promoPriceCents} IS NULL OR (${t.promoPriceCents} >= 0 AND ${t.promoPriceCents} < ${t.priceCents})`),
+    check("products_sale_window_valid", sql`${t.saleStartsAt} IS NULL OR ${t.saleEndsAt} IS NULL OR ${t.saleEndsAt} > ${t.saleStartsAt}`),
   ],
 );
 
@@ -317,6 +324,8 @@ export const orders = pgTable(
     subtotalCents: integer("subtotal_cents").notNull(),
     shippingCents: integer("shipping_cents").notNull().default(0),
     discountCents: integer("discount_cents").notNull().default(0),
+    /** Código do cupom usado (cópia, para o histórico do pedido). */
+    couponCode: text("coupon_code"),
     totalCents: integer("total_cents").notNull(),
 
     shippingMethodCode: text("shipping_method_code").notNull(),
@@ -447,6 +456,81 @@ export const stockMovements = pgTable(
   (t) => [
     index("stock_movements_product_idx").on(t.productId, t.createdAt),
     index("stock_movements_order_idx").on(t.orderId),
+  ],
+);
+
+/** Histórico de preços (gravado por gatilho do banco a cada mudança de preço ou de promoção em vigor). */
+export const priceHistory = pgTable(
+  "price_history",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    priceCents: integer("price_cents").notNull(),
+    salePriceCents: integer("sale_price_cents"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("price_history_product_idx").on(t.productId, t.createdAt)],
+);
+
+/* ------------------------------------------------------------------ */
+/* Cupons de desconto                                                  */
+/* ------------------------------------------------------------------ */
+
+/** Cupom de desconto. O código é guardado sempre em MAIÚSCULAS. `value` = % (1 a 90) ou centavos, conforme `kind`. */
+export const coupons = pgTable(
+  "coupons",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    code: text("code").notNull(),
+    description: text("description"),
+    kind: text("kind").$type<"PERCENT" | "FIXED">().notNull(),
+    value: integer("value").notNull(),
+    /** Subtotal mínimo dos produtos (em centavos) para o cupom valer. */
+    minSubtotalCents: integer("min_subtotal_cents").notNull().default(0),
+    startsAt: timestamp("starts_at", { withTimezone: true }),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    /** Limite de usos no total (nulo = sem limite). Só contam pedidos que seguram o cupom (não cancelados/expirados). */
+    maxRedemptions: integer("max_redemptions"),
+    /** Limite de usos por cliente (nulo = sem limite). */
+    maxPerUser: integer("max_per_user"),
+    active: boolean("active").notNull().default(true),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    uniqueIndex("coupons_code_unique").on(t.code),
+    check("coupons_code_upper", sql`${t.code} = upper(${t.code}) AND length(${t.code}) BETWEEN 3 AND 32`),
+    check("coupons_kind_valid", sql`${t.kind} IN ('PERCENT', 'FIXED')`),
+    check("coupons_value_valid", sql`(${t.kind} = 'PERCENT' AND ${t.value} BETWEEN 1 AND 90) OR (${t.kind} = 'FIXED' AND ${t.value} > 0)`),
+    check("coupons_min_nonneg", sql`${t.minSubtotalCents} >= 0`),
+    check("coupons_limits_positive", sql`(${t.maxRedemptions} IS NULL OR ${t.maxRedemptions} > 0) AND (${t.maxPerUser} IS NULL OR ${t.maxPerUser} > 0)`),
+    check("coupons_period_valid", sql`${t.startsAt} IS NULL OR ${t.endsAt} IS NULL OR ${t.endsAt} > ${t.startsAt}`),
+  ],
+);
+
+/** Uso de um cupom por um pedido. `releasedAt` preenchido = o pedido foi cancelado/expirou e o uso voltou para o cupom. */
+export const couponRedemptions = pgTable(
+  "coupon_redemptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    couponId: uuid("coupon_id")
+      .notNull()
+      .references(() => coupons.id, { onDelete: "restrict" }),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    discountCents: integer("discount_cents").notNull(),
+    releasedAt: timestamp("released_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("coupon_redemptions_order_unique").on(t.orderId),
+    index("coupon_redemptions_coupon_idx").on(t.couponId, t.releasedAt),
+    index("coupon_redemptions_user_idx").on(t.couponId, t.userId),
+    check("coupon_redemptions_discount_pos", sql`${t.discountCents} > 0`),
   ],
 );
 
@@ -624,6 +708,7 @@ export type Address = typeof addresses.$inferSelect;
 export type Order = typeof orders.$inferSelect;
 export type OrderItem = typeof orderItems.$inferSelect;
 export type Payment = typeof payments.$inferSelect;
+export type Coupon = typeof coupons.$inferSelect;
 export type StockMovement = typeof stockMovements.$inferSelect;
 export type EventTemplate = typeof eventTemplates.$inferSelect;
 export type EventRow = typeof events.$inferSelect;

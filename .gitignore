@@ -1,7 +1,7 @@
 # dependências e build
 node_modules/
 .next/
-out/
+/out/
 *.tsbuildinfo
 next-env.d.ts
 
@@ -12,9 +12,9 @@ next-env.d.ts
 
 # arquivos enviados pelo painel (imagens de produtos) e backups
 /storage/
-backups/
+/backups/
 
 # testes / logs / sistema
-coverage/
+/coverage/
 npm-debug.log*
 .DS_Store

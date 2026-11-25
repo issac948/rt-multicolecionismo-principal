@@ -282,7 +282,7 @@ const DEMO_PRODUCTS: DemoProduct[] = [
 ];
 
 const BASE_INPUT: Omit<ProductInput, "name" | "priceCents" | "stock"> = {
-  sku: null, shortDescription: "", description: "", salePriceCents: null, lowStockThreshold: 3, active: true, featured: false,
+  sku: null, shortDescription: "", description: "", salePriceCents: null, saleStartsAt: null, saleEndsAt: null, lowStockThreshold: 3, active: true, featured: false,
   categoryId: null, features: [], tags: [], promoText: null, seoTitle: null, seoDescription: null,
   weightGrams: null, lengthCm: null, widthCm: null, heightCm: null, imageIds: [],
   brand: null, model: null, scale: null, series: null, releaseYear: null, condition: null, packagingState: null, conservationNotes: null,

@@ -2,13 +2,14 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { orders, payments, products } from "@/server/db/schema";
+import { couponRedemptions, orders, payments, products } from "@/server/db/schema";
 import { addToCart, getOrCreateUserCart } from "@/server/services/cart";
 import { createOrderFromCart, startPaymentForOrder } from "@/server/services/orders";
 import { confirmPaymentOnReturn, processPaymentWebhook, refundOrder } from "@/server/services/payments";
 import { buildInfinitePayRef, parseInfinitePayRef } from "@/server/payments/infinitepay";
 import { getPaymentProvider } from "@/server/payments";
 import { ExternalServiceError } from "@/server/errors";
+import { createCoupon } from "@/server/services/coupons";
 import { createAddress, createTestProduct, createUser, db, resetDb } from "./helpers";
 
 // Tudo aqui roda contra um InfinitePay SIMULADO (abaixo). Não prova funcionamento com o InfinitePay real.
@@ -276,5 +277,54 @@ describe("InfinitePay: reembolso é manual (o InfinitePay não tem reembolso por
   it("pedido que não foi pago não pode ser reembolsado", async () => {
     const { order } = await startPaying();
     await expect(refundOrder(order.id)).rejects.toThrow("Não há pagamento aprovado");
+  });
+});
+
+describe("InfinitePay com cupom de desconto", () => {
+  async function couponOrder(newCoupon = true, qty = 3, price = 3333) {
+    if (newCoupon) await createCoupon({ code: "BLACK10", description: null, kind: "PERCENT", value: 7, minSubtotalCents: 0, startsAt: null, endsAt: null, maxRedemptions: null, maxPerUser: null });
+    const product = await createTestProduct({ stock: 9, priceCents: price });
+    const user = await createUser();
+    const address = await createAddress(user.id);
+    const cartId = await getOrCreateUserCart(user.id);
+    await addToCart(cartId, product.id, qty);
+    const order = await createOrderFromCart({ userId: user.id, cartId, addressId: address.id, shippingCode: "ENTREGA", note: null, couponCode: "BLACK10" });
+    return { product, user, order };
+  }
+
+  it("itens + frete enviados ao InfinitePay somam o TOTAL já com desconto (centavos exatos, sem item zerado)", async () => {
+    const { order, user } = await couponOrder();
+    expect(order.discountCents).toBeGreaterThan(0);
+    expect(order.totalCents).toBe(order.subtotalCents + order.shippingCents - order.discountCents);
+    await startPaymentForOrder(order.id, user.id);
+    const sent = mock.orders.get(order.id)!.request;
+    expect(sent.items.reduce((s: number, i: any) => s + i.price * i.quantity, 0)).toBe(order.totalCents);
+    expect(sent.items.every((i: any) => Number.isInteger(i.price) && i.price > 0 && Number.isInteger(i.quantity) && i.quantity > 0)).toBe(true);
+  });
+
+  it("pagar o valor COM desconto quita o pedido; pagar o valor SEM desconto (provedor ignorou o cupom) não quita e deixa aviso", async () => {
+    const a = await couponOrder();
+    await startPaymentForOrder(a.order.id, a.user.id);
+    pay(a.order.id, {}, a.order.totalCents);
+    expect((await hook(a.order.id)).outcome).toBe("paid");
+    expect((await loadOrder(a.order.id)).status).toBe("PAGO");
+
+    const b = await couponOrder(false);
+    await startPaymentForOrder(b.order.id, b.user.id);
+    pay(b.order.id, { tx: "TX-B", slug: "slug-b" }, b.order.totalCents + b.order.discountCents);
+    expect((await hook(b.order.id, { tx: "TX-B", slug: "slug-b" })).outcome).toBe("amount_mismatch");
+    expect((await loadOrder(b.order.id)).status).toBe("PAGAMENTO_PENDENTE");
+  });
+
+  it("reembolso (confirmado pelo dono) devolve o uso do cupom", async () => {
+    const a = await couponOrder();
+    await startPaymentForOrder(a.order.id, a.user.id);
+    pay(a.order.id, {}, a.order.totalCents);
+    expect((await hook(a.order.id)).outcome).toBe("paid");
+    const before = await db.select().from(couponRedemptions).where(eq(couponRedemptions.orderId, a.order.id));
+    expect(before.map((r) => r.releasedAt)).toEqual([null]);
+    await refundOrder(a.order.id);
+    const after = await db.select().from(couponRedemptions).where(eq(couponRedemptions.orderId, a.order.id));
+    expect(after[0].releasedAt).not.toBeNull();
   });
 });

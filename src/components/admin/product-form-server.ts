@@ -1,3 +1,4 @@
+import { toBrLocalInput } from "@/lib/datetime-br";
 import { centsToInput } from "@/lib/money";
 import type { ProductWithRelations } from "@/server/services/products";
 import { fileUrl } from "@/server/storage";
@@ -15,7 +16,9 @@ export function productToFormValues(product: ProductWithRelations): ProductFormV
     description: product.description,
     categoryId: product.categoryId ?? "",
     price: centsToInput(product.priceCents),
-    salePrice: centsToInput(product.salePriceCents),
+    salePrice: centsToInput(product.promoPriceCents ?? product.salePriceCents),
+    saleStarts: toBrLocalInput(product.saleStartsAt),
+    saleEnds: toBrLocalInput(product.saleEndsAt),
     promoText: product.promoText ?? "",
     stock: String(product.stock),
     lowStockThreshold: String(product.lowStockThreshold),

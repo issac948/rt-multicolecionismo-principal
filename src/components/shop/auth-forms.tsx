@@ -89,6 +89,10 @@ export function RegisterForm({ next }: { next: string | null }) {
 
       {state.message && !state.errors && <Alert tone="error">{state.message}</Alert>}
 
+      <p className="text-xs text-ink-soft">
+        Ao criar a conta, você concorda com os <Link href="/termos-de-uso">Termos de uso</Link> e com a{" "}
+        <Link href="/politica-de-privacidade">Política de privacidade</Link>.
+      </p>
       <button type="submit" className="btn btn-primary btn-block" disabled={pending}>
         {pending ? "Criando conta..." : "Criar conta"}
       </button>

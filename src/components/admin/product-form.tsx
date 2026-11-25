@@ -230,6 +230,12 @@ export function ProductForm({
           <Field label="Preço promocional (R$)" htmlFor="salePrice" error={errors.salePriceCents} hint="Opcional. Menor que o preço.">
             <input id="salePrice" name="salePrice" className="input" inputMode="decimal" defaultValue={initial.salePrice} {...invalid(errors, "salePriceCents", "salePrice")} />
           </Field>
+          <Field label="Promoção começa (opcional)" htmlFor="saleStarts" error={errors.saleStartsAt} hint="Horário de Brasília. Vazio = já vale.">
+            <input id="saleStarts" name="saleStarts" type="datetime-local" className="input" defaultValue={initial.saleStarts} {...invalid(errors, "saleStartsAt", "saleStarts")} />
+          </Field>
+          <Field label="Promoção termina (opcional)" htmlFor="saleEnds" error={errors.saleEndsAt} hint="Horário de Brasília. Vazio = sem fim.">
+            <input id="saleEnds" name="saleEnds" type="datetime-local" className="input" defaultValue={initial.saleEnds} {...invalid(errors, "saleEndsAt", "saleEnds")} />
+          </Field>
         </div>
 
         <label className="flex items-center gap-3">

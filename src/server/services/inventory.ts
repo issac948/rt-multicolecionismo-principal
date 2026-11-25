@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, lte, sql } from "drizzle-orm";
 import { db, type Tx } from "../db";
 import { orderItems, orders, products, stockMovements, users } from "../db/schema";
 import { BusinessRuleError, InsufficientStockError, NotFoundError } from "../errors";
+import { reacquireCouponForOrder, releaseCouponForOrder } from "./coupons";
 
 export type StockLine = { productId: string; quantity: number };
 
@@ -111,6 +112,8 @@ export async function restoreStockForOrder(
   }
 
   await tx.update(orders).set({ stockReleasedAt: new Date() }).where(eq(orders.id, orderId));
+  // O cupom usado por este pedido volta a ficar disponível (limite de usos).
+  await releaseCouponForOrder(tx, orderId);
   return true;
 }
 
@@ -131,6 +134,7 @@ export async function tryReacquireStockForOrder(tx: Tx, orderId: string): Promis
         orderId,
       );
       await savepoint.update(orders).set({ stockReleasedAt: null }).where(eq(orders.id, orderId));
+      await reacquireCouponForOrder(savepoint, orderId);
     });
     return true;
   } catch (error) {

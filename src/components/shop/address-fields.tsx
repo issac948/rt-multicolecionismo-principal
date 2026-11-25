@@ -1,5 +1,10 @@
+"use client";
+
+import { useRef, useState } from "react";
 import { Field } from "@/components/ui";
 import { BRAZIL_STATES } from "@/lib/constants";
+import { maskCep, maskPhone } from "@/lib/masks";
+import { parseViaCepResponse, viaCepUrl } from "@/lib/viacep";
 
 type Defaults = Partial<{
   label: string | null;
@@ -30,12 +35,54 @@ export function AddressFields({
   showDefaultCheckbox?: boolean;
 }) {
   const id = (name: string) => `${prefix}${name}`;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const lastCep = useRef<string>("");
+  const [cepStatus, setCepStatus] = useState<{ tone: "info" | "warn"; text: string } | null>(null);
+
+  const setField = (name: string, value: string) => {
+    const el = rootRef.current?.querySelector<HTMLInputElement | HTMLSelectElement>(`[name="${id(name)}"]`);
+    if (el && value) el.value = value;
+  };
+
+  /** CEP completo: busca o endereço no ViaCEP (pelo navegador) e preenche rua, bairro, cidade e UF. Sempre dá para corrigir à mão. */
+  async function lookupCep(cep: string) {
+    const url = viaCepUrl(cep);
+    const digits = cep.replace(/\D/g, "");
+    if (!url) {
+      lastCep.current = "";
+      setCepStatus(null);
+      return;
+    }
+    if (digits === lastCep.current) return;
+    lastCep.current = digits;
+    setCepStatus({ tone: "info", text: "Buscando o endereço..." });
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(6000) });
+      const found = response.ok ? parseViaCepResponse(await response.json()) : null;
+      if (lastCep.current !== digits) return; // a pessoa já mudou o CEP
+      if (!found) {
+        setCepStatus({ tone: "warn", text: "Não encontramos este CEP. Confira os números ou preencha o endereço à mão." });
+        return;
+      }
+      setField("street", found.street);
+      setField("neighborhood", found.neighborhood);
+      setField("city", found.city);
+      setField("state", found.state);
+      setCepStatus({ tone: "info", text: "Endereço preenchido pelo CEP. Confira e informe o número." });
+      rootRef.current?.querySelector<HTMLInputElement>(`[name="${id("number")}"]`)?.focus();
+    } catch {
+      if (lastCep.current === digits) {
+        lastCep.current = "";
+        setCepStatus({ tone: "warn", text: "Não consegui buscar o CEP agora. Preencha o endereço à mão." });
+      }
+    }
+  }
   const err = (name: string) => errors[id(name)];
   const aria = (name: string) =>
     err(name) ? ({ "aria-invalid": true, "aria-describedby": `${id(name)}-error` } as const) : {};
 
   return (
-    <div className="grid gap-4 sm:grid-cols-6">
+    <div ref={rootRef} className="grid gap-4 sm:grid-cols-6">
       <div className="sm:col-span-3">
         <Field label="Nome de quem recebe" htmlFor={id("recipientName")} error={err("recipientName")}>
           <input
@@ -60,6 +107,9 @@ export function AddressFields({
             autoComplete="tel"
             maxLength={20}
             placeholder="(11) 90000-0000"
+            onInput={(e) => {
+              e.currentTarget.value = maskPhone(e.currentTarget.value);
+            }}
             defaultValue={defaults.phone ?? ""}
             {...aria("phone")}
           />
@@ -67,7 +117,7 @@ export function AddressFields({
       </div>
 
       <div className="sm:col-span-2">
-        <Field label="CEP" htmlFor={id("cep")} error={err("cep")}>
+        <Field label="CEP" htmlFor={id("cep")} error={err("cep")} hint={cepStatus?.text}>
           <input
             id={id("cep")}
             name={id("cep")}
@@ -76,6 +126,10 @@ export function AddressFields({
             autoComplete="postal-code"
             maxLength={9}
             placeholder="00000-000"
+            onInput={(e) => {
+              e.currentTarget.value = maskCep(e.currentTarget.value);
+              void lookupCep(e.currentTarget.value);
+            }}
             defaultValue={defaults.cep ?? ""}
             {...aria("cep")}
           />

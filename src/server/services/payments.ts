@@ -1,9 +1,12 @@
 import { and, desc, eq, lt, ne, sql } from "drizzle-orm";
 import { AWAITING_PAYMENT_STATUSES, PAID_ORDER_STATUSES } from "@/lib/constants";
+import { formatBRL } from "@/lib/money";
 import { UUID_RE } from "@/lib/schemas";
 import { db, type Tx } from "../db";
 import { orders, payments, webhookEvents } from "../db/schema";
+import { getEnv } from "../env";
 import { BusinessRuleError, ExternalServiceError, NotFoundError } from "../errors";
+import { notifyOwner, telegramConfigured } from "../notify";
 import { getPaymentProvider, type PaymentProvider, type ProviderPayment } from "../payments";
 import { parseInfinitePayRef } from "../payments/infinitepay";
 import { restoreStockForOrder, tryReacquireStockForOrder } from "./inventory";
@@ -61,6 +64,29 @@ export async function applyProviderPayment(pp: ProviderPayment): Promise<{ outco
   if (!pp.orderId || !UUID_RE.test(pp.orderId)) return { outcome: "ignored_no_order" };
   const orderId = pp.orderId;
 
+  const result = await applyProviderPaymentTx(pp, orderId);
+  // Aviso ao dono (Telegram, se configurado): só depois de gravar; falha no aviso nunca afeta o pagamento.
+  if (result.outcome === "paid" || result.outcome === "approved_after_cancel_no_stock") await alertOwnerAboutPayment(orderId, result.outcome);
+  return result;
+}
+
+async function alertOwnerAboutPayment(orderId: string, outcome: "paid" | "approved_after_cancel_no_stock"): Promise<void> {
+  if (!telegramConfigured()) return;
+  try {
+    const [o] = await db.select({ number: orders.number, total: orders.totalCents, ship: orders.shippingMethodLabel }).from(orders).where(eq(orders.id, orderId));
+    if (!o) return;
+    const link = `${getEnv().siteUrl}/admin/pedidos/${orderId}`;
+    await notifyOwner(
+      outcome === "paid"
+        ? `💰 Pedido #${o.number} PAGO — ${formatBRL(o.total)} (${o.ship}).\n${link}`
+        : `⚠️ Pedido #${o.number}: pagamento aprovado mas SEM estoque. Reembolse pelo painel.\n${link}`,
+    );
+  } catch {
+    /* aviso é opcional */
+  }
+}
+
+async function applyProviderPaymentTx(pp: ProviderPayment, orderId: string) {
   return db.transaction(async (tx) => {
     const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).for("update");
     if (!order) return { outcome: "ignored_unknown_order" as const };

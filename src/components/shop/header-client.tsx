@@ -94,9 +94,12 @@ export function HeaderClient({ storeName, logoSrc, categories, cartCount, userNa
             <User size={20} aria-hidden />
             <span className="hidden lg:inline">{userName ?? "Entrar"}</span>
           </Link>
-          <Link href="/carrinho" className="btn btn-primary relative !px-0 w-11 sm:w-auto sm:!px-4 md:!px-3 lg:!px-5" aria-label={cartLabel}>
+          <Link href="/carrinho" className="btn btn-primary relative !px-0 w-11 sm:w-auto sm:!px-4 md:!px-3 lg:!px-5">
             <ShoppingCart size={20} aria-hidden />
-            <span className="hidden sm:inline md:hidden lg:inline">Carrinho</span>
+            <span className="sr-only">{cartLabel}</span>
+            <span className="hidden sm:inline md:hidden lg:inline" aria-hidden>
+              Carrinho
+            </span>
             {/* No celular a quantidade vira uma bolinha sobre o ícone (some se o carrinho está vazio). */}
             <span
               className={`absolute -right-1.5 -top-1.5 min-w-5 rounded-full bg-enamel px-1 text-center text-xs font-bold text-white sm:static sm:min-w-6 sm:bg-night sm:text-sm ${cartCount === 0 ? "max-sm:hidden" : ""}`}

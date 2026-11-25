@@ -65,6 +65,8 @@ async function unpaidOrder(opts: { overdue: boolean }) {
   if (opts.overdue) await db.update(orders).set({ expiresAt: new Date(Date.now() - 60_000) }).where(eq(orders.id, order.id));
   return { product, user, order };
 }
+/** Vence o prazo DEPOIS de criar todos os pedidos: criar pedido já libera reservas vencidas (reservas.test.ts). */
+const makeOverdue = (orderId: string) => db.update(orders).set({ expiresAt: new Date(Date.now() - 60_000) }).where(eq(orders.id, orderId));
 const stockOf = async (id: string) => (await db.select().from(products).where(eq(products.id, id)))[0].stock;
 const statusOf = async (id: string) => (await db.select().from(orders).where(eq(orders.id, id)))[0].status;
 
@@ -80,9 +82,11 @@ describe("manutenção: separação entre o que mexe em pedidos e a limpeza", ()
   });
 
   it("o grupo PEDIDOS cancela só o não pago vencido e devolve o estoque; pago e no prazo ficam intactos", async () => {
-    const overdue = await unpaidOrder({ overdue: true });
+    const overdue = await unpaidOrder({ overdue: false });
     const fresh = await unpaidOrder({ overdue: false });
-    const paid = await unpaidOrder({ overdue: true });
+    const paid = await unpaidOrder({ overdue: false });
+    await makeOverdue(overdue.order.id);
+    await makeOverdue(paid.order.id);
     await db.update(orders).set({ status: "PAGO", paymentStatus: "APROVADO" }).where(eq(orders.id, paid.order.id));
 
     expect(await runOrderMaintenance()).toEqual({ expiredOrders: 1 });
@@ -95,8 +99,9 @@ describe("manutenção: separação entre o que mexe em pedidos e a limpeza", ()
   });
 
   it("registra a última execução e mostra pedidos vencidos ainda segurando estoque", async () => {
-    await unpaidOrder({ overdue: true });
+    const old = await unpaidOrder({ overdue: false });
     await unpaidOrder({ overdue: false });
+    await makeOverdue(old.order.id);
     const before = await getMaintenanceStatus();
     expect(before).toMatchObject({ lastRunAt: null, source: null, overdueUnpaidOrders: 1 });
 

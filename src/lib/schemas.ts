@@ -149,6 +149,9 @@ export const productInputSchema = z
       .max(MAX_PRICE_CENTS, "Preço acima do limite permitido")
       .nullish()
       .transform((v) => v ?? null),
+    /** Janela da promoção (horário de Brasília já convertido para Date). Vazio = sem limite. */
+    saleStartsAt: z.date().nullish().transform((v) => v ?? null),
+    saleEndsAt: z.date().nullish().transform((v) => v ?? null),
     stock: z.number("Informe o estoque").int("O estoque precisa ser um número inteiro").min(0, "O estoque não pode ser negativo").max(1_000_000).default(0),
     lowStockThreshold: z.number().int().min(0).max(10_000).default(3),
     active: z.boolean().default(false),
@@ -177,6 +180,14 @@ export const productInputSchema = z
   .refine((d) => d.salePriceCents === null || d.salePriceCents < d.priceCents, {
     message: "O preço promocional precisa ser menor que o preço normal",
     path: ["salePriceCents"],
+  })
+  .refine((d) => d.salePriceCents !== null || (d.saleStartsAt === null && d.saleEndsAt === null), {
+    message: "Informe o preço promocional para usar datas de início e fim",
+    path: ["salePriceCents"],
+  })
+  .refine((d) => d.saleStartsAt === null || d.saleEndsAt === null || d.saleEndsAt.getTime() > d.saleStartsAt.getTime(), {
+    message: "O fim da promoção precisa ser depois do início",
+    path: ["saleEndsAt"],
   });
 export type ProductInput = z.output<typeof productInputSchema>;
 
@@ -190,6 +201,16 @@ export const checkoutSchema = z.object({
     .nullish()
     .transform((v) => (v && /^\d{1,9}$/.test(v.trim()) ? Number(v.trim()) : null)),
   addressId: uuidSchema.nullish().transform((v) => v ?? null),
+  /** Cupom já aplicado na tela (o servidor confere tudo de novo ao criar o pedido). */
+  couponCode: z
+    .string()
+    .nullish()
+    .transform((v) => (v && v.trim() ? v.trim().slice(0, 40) : null)),
+  /** Desconto que a pessoa viu na tela; só serve para avisar se mudou. */
+  expectedDiscountCents: z
+    .string()
+    .nullish()
+    .transform((v) => (v && /^\d{1,9}$/.test(v.trim()) ? Number(v.trim()) : null)),
   note: optionalText(300, "Observação muito longa (máx. 300)"),
 });
 

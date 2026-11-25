@@ -1,3 +1,4 @@
+import { applyScheduledPromotions } from "./promotions";
 import { and, count, inArray, sql } from "drizzle-orm";
 import { AWAITING_PAYMENT_STATUSES } from "@/lib/constants";
 import { purgeExpiredSessions } from "../auth/session";
@@ -63,6 +64,7 @@ export async function runHousekeeping(): Promise<Omit<MaintenanceReport, "expire
 export async function runMaintenance(source: MaintenanceSource = "terminal"): Promise<MaintenanceReport> {
   const startedAt = Date.now();
   const report: MaintenanceReport = { ...(await runOrderMaintenance()), ...(await runHousekeeping()) };
+  await applyScheduledPromotions(); // liga/desliga promoções programadas mesmo sem visitas (nunca lança)
   await recordMaintenanceRun(source, report, Date.now() - startedAt);
   return report;
 }

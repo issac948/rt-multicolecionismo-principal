@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MessageCircle, Truck } from "lucide-react";
+import { MessageCircle, Share2, Truck } from "lucide-react";
 import { AddToCartForm } from "@/components/shop/add-to-cart-form";
 import { deliveryLines, paymentLines } from "@/components/shop/delivery-info";
 import { absoluteUrl, jsonLd } from "@/components/shop/format";
@@ -12,6 +12,8 @@ import { collectibleSpecs, conditionLabel } from "@/lib/collectibles";
 import { effectivePriceCents } from "@/lib/money";
 import { whatsappLink } from "@/lib/text";
 import { getEnv } from "@/server/env";
+import { resolveCartId } from "@/server/cart-session";
+import { getProductCartInterest } from "@/server/services/live-carts";
 import { getPublicProductBySlug, listRelatedProducts } from "@/server/services/products";
 import { getSettings } from "@/server/services/settings";
 import { fileUrl } from "@/server/storage";
@@ -41,7 +43,13 @@ export default async function ProductPage({ params }: Props) {
   const product = await getPublicProductBySlug((await params).slug);
   if (!product) notFound();
 
-  const [settings, related] = await Promise.all([getSettings(), listRelatedProducts(product)]);
+  const ownCartId = await resolveCartId({ create: false });
+  const [settings, related, interested] = await Promise.all([
+    getSettings(),
+    listRelatedProducts(product),
+    // Prova social só com atividade real: outros carrinhos ativos com este produto (sem nomes).
+    product.stock > 0 ? getProductCartInterest(product.id, ownCartId) : Promise.resolve(0),
+  ]);
   const siteUrl = getEnv().siteUrl;
   const soldOut = product.stock <= 0;
 
@@ -76,6 +84,7 @@ export default async function ProductPage({ params }: Props) {
   const condition = conditionLabel(product.condition);
   const lines = [...deliveryLines(settings), ...paymentLines(settings)];
   // Só aparece se o dono cadastrou o WhatsApp; a mensagem já leva o nome e o link do produto para ele saber do que se trata.
+  const shareUrl = `https://wa.me/?text=${encodeURIComponent(`${product.name} — ${siteUrl}/produtos/${product.slug}`)}`;
   const askOnWhatsapp = whatsappLink(settings.whatsapp, `Olá! Tenho uma dúvida sobre este produto: ${product.name} ${siteUrl}/produtos/${product.slug}`);
   const paragraphs = product.description.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
 
@@ -126,9 +135,20 @@ export default async function ProductPage({ params }: Props) {
             )}
           </div>
           {product.promoText && <p className="mt-3 font-semibold">{product.promoText}</p>}
+          {interested > 0 && (
+            <p className="mt-3 text-sm text-ink-soft">
+              {interested === 1 ? "Outra pessoa colocou" : `${interested} pessoas colocaram`} este item no carrinho nos últimos 30 minutos. O carrinho
+              não reserva a peça: ela é de quem finalizar a compra primeiro.
+            </p>
+          )}
 
           <div className="mt-6">
             <AddToCartForm productId={product.id} stock={product.stock} />
+            <p className="mt-3">
+              <a href={shareUrl} target="_blank" rel="noopener noreferrer" className="btn-link inline-flex items-center gap-2 text-sm">
+                <Share2 aria-hidden size={16} /> Compartilhar este modelo no WhatsApp
+              </a>
+            </p>
           </div>
 
           {askOnWhatsapp && (

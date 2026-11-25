@@ -16,6 +16,8 @@ export type ProductFormValues = {
   categoryId: string;
   price: string;
   salePrice: string;
+  saleStarts: string;
+  saleEnds: string;
   promoText: string;
   stock: string;
   lowStockThreshold: string;
@@ -48,6 +50,8 @@ export const EMPTY_PRODUCT_VALUES: ProductFormValues = {
   categoryId: "",
   price: "",
   salePrice: "",
+  saleStarts: "",
+  saleEnds: "",
   promoText: "",
   stock: "0",
   lowStockThreshold: "3",

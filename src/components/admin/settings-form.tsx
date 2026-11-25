@@ -52,6 +52,15 @@ export type SettingsFormValues = {
   payBoleto: boolean;
   payMaxInstallments: number;
   payWindowMinutes: number;
+  campMode: "auto" | "on" | "off";
+  campName: string;
+  campHeadline: string;
+  campTeaser: string;
+  campStarts: string;
+  campEnds: string;
+  campCtaLabel: string;
+  campCtaHref: string;
+  campTeaserHours: number;
 };
 
 /** Os erros de campos aninhados chegam com nomes diferentes (ex.: paymentMaxInstallments). */
@@ -409,6 +418,48 @@ export function SettingsForm({
             hint="Passou desse tempo sem pagar, o pedido é cancelado e o estoque volta. De 15 a 4320 (3 dias)."
           >
             <input id="payWindowMinutes" name="payWindowMinutes" className="input" inputMode="numeric" defaultValue={initial.payWindowMinutes} />
+          </Field>
+        </div>
+      </section>
+
+      <section className="panel space-y-3" aria-labelledby="cf-campanha">
+        <h2 id="cf-campanha" className="text-2xl">
+          Campanha (Black Friday)
+        </h2>
+        <p className="hint !mt-0">
+          Liga o visual especial da campanha na loja inteira (cores, faixa no topo e destaque na página inicial) e volta ao visual normal sozinho no fim. Os preços da promoção são programados em cada produto (início e fim).
+        </p>
+        <Field label="Controle" htmlFor="campMode" hint="“Automático” liga e desliga pelas datas abaixo. “Ligado agora” e “Desligado” ignoram as datas.">
+          <select id="campMode" name="campMode" className="select" defaultValue={initial.campMode}>
+            <option value="auto">Automático (pelas datas)</option>
+            <option value="on">Ligado agora</option>
+            <option value="off">Desligado</option>
+          </select>
+        </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Nome" htmlFor="campName" error={pick(errors, "campaignName")}>
+            <input id="campName" name="campName" className="input" defaultValue={initial.campName} maxLength={40} />
+          </Field>
+          <Field label="Texto durante a campanha" htmlFor="campHeadline" error={pick(errors, "campaignHeadline")} hint="Ex.: Ofertas em miniaturas selecionadas">
+            <input id="campHeadline" name="campHeadline" className="input" defaultValue={initial.campHeadline} maxLength={100} />
+          </Field>
+          <Field label="Começa (horário de Brasília)" htmlFor="campStarts" error={pick(errors, "campaignStartsAt")} hint="Ex.: 27/11/2026 00:00">
+            <input id="campStarts" name="campStarts" type="datetime-local" className="input" defaultValue={initial.campStarts} />
+          </Field>
+          <Field label="Termina (horário de Brasília)" htmlFor="campEnds" error={pick(errors, "campaignEndsAt")} hint="Ex.: 30/11/2026 23:59 (Cyber Monday)">
+            <input id="campEnds" name="campEnds" type="datetime-local" className="input" defaultValue={initial.campEnds} />
+          </Field>
+          <Field label="Texto antes de começar" htmlFor="campTeaser" error={pick(errors, "campaignTeaser")} hint="Ex.: Black Friday começa em breve">
+            <input id="campTeaser" name="campTeaser" className="input" defaultValue={initial.campTeaser} maxLength={100} />
+          </Field>
+          <Field label="Mostrar o aviso “em breve” quantas horas antes do início" htmlFor="campTeaserHours" error={pick(errors, "campaignTeaserHours")} hint="0 = só a partir do início. Máx. 720.">
+            <input id="campTeaserHours" name="campTeaserHours" className="input" inputMode="numeric" defaultValue={initial.campTeaserHours} />
+          </Field>
+          <Field label="Botão da faixa" htmlFor="campCtaLabel" error={pick(errors, "campaignCtaLabel")}>
+            <input id="campCtaLabel" name="campCtaLabel" className="input" defaultValue={initial.campCtaLabel} maxLength={30} />
+          </Field>
+          <Field label="Link do botão" htmlFor="campCtaHref" error={pick(errors, "campaignCtaHref")} hint="Padrão: /produtos?promocao=1 (só produtos em promoção)">
+            <input id="campCtaHref" name="campCtaHref" className="input" defaultValue={initial.campCtaHref} />
           </Field>
         </div>
       </section>

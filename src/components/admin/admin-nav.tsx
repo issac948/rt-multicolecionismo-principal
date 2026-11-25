@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 import {
   BarChart3,
   Boxes,
+  ShoppingCart,
   CalendarDays,
   ClipboardList,
   Layers,
   Package,
+  Ticket,
   Settings,
   Sparkles,
   Users,
@@ -19,8 +21,10 @@ import { cn } from "@/lib/text";
 const ITEMS: Array<{ href: string; label: string; icon: LucideIcon }> = [
   { href: "/admin/dashboard", label: "Resumo", icon: BarChart3 },
   { href: "/admin/pedidos", label: "Pedidos", icon: ClipboardList },
+  { href: "/admin/carrinhos", label: "Carrinhos ao vivo", icon: ShoppingCart },
   { href: "/admin/produtos", label: "Produtos", icon: Package },
   { href: "/admin/categorias", label: "Categorias", icon: Layers },
+  { href: "/admin/cupons", label: "Cupons", icon: Ticket },
   { href: "/admin/estoque", label: "Estoque", icon: Boxes },
   { href: "/admin/eventos", label: "Eventos", icon: CalendarDays },
   { href: "/admin/clientes", label: "Clientes", icon: Users },

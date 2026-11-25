@@ -11,6 +11,7 @@ import { ProductGrid } from "@/components/shop/product-card";
 import { SectionHead } from "@/components/shop/section-head";
 import { publicCategoryTree } from "@/lib/categories";
 import { CALENDAR_MAX_MONTHS_AHEAD, CALENDAR_MAX_MONTHS_BEHIND, monthKeyOf, shiftMonth, todayIso } from "@/lib/events";
+import { campaignThemeActive } from "@/lib/campaign";
 import { splitCarShowcases } from "@/lib/home-sections";
 import { formatPhone, whatsappLink } from "@/lib/text";
 import { getEnv } from "@/server/env";
@@ -147,6 +148,26 @@ export default async function HomePage() {
         </div>
       </section>
       <div className="checker" aria-hidden />
+
+      {/* Destaque da campanha: só aparece com ela no ar e some sozinho no fim. Sem contador e sem desconto inventado. */}
+      {campaignThemeActive(settings.campaign) && (
+        <section className="bf-hero on-dark" aria-label={settings.campaign.name}>
+          <div className="container-page flex flex-wrap items-center justify-between gap-6 py-8 md:py-12">
+            <div>
+              <p className="eyebrow">Campanha especial</p>
+              <h2 className="bf-hero__title mt-1">
+                {settings.campaign.name.split(" ").slice(0, -1).join(" ")} <span>{settings.campaign.name.split(" ").slice(-1)[0]}</span>
+              </h2>
+              {settings.campaign.headline && <p className="mt-3 max-w-[52ch] text-lg text-white/85">{settings.campaign.headline}</p>}
+            </div>
+            {settings.campaign.ctaHref && (
+              <Link href={settings.campaign.ctaHref} className="btn btn-primary !min-h-14 !px-8 !text-lg">
+                {settings.campaign.ctaLabel || "Ver ofertas"}
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       {categoryTiles}
 

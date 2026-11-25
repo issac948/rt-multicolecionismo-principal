@@ -32,6 +32,8 @@ import {
 } from "../db/schema";
 import { BusinessRuleError, isUniqueViolation, NotFoundError, ValidationError } from "../errors";
 import { deleteImageFiles } from "../storage/images";
+import { publicHousekeeping } from "./housekeeping";
+import { liveSalePriceCents } from "@/lib/promotions";
 
 export type ProductWithRelations = Product & { images: ProductImage[]; category: Category | null };
 
@@ -153,6 +155,7 @@ function orderByFor(sort: ProductSort | undefined) {
 }
 
 export async function listPublicProducts(filters: ProductFilters = {}) {
+  await publicHousekeeping();
   const page = Math.max(1, Math.floor(filters.page ?? 1));
   const pageSize = Math.min(48, Math.max(1, filters.pageSize ?? 12));
   const where = and(...publicConditions(filters));
@@ -172,6 +175,7 @@ export async function listPublicProducts(filters: ProductFilters = {}) {
 }
 
 export async function getPublicProductBySlug(slug: string): Promise<ProductWithRelations | null> {
+  await publicHousekeeping();
   const product = await db.query.products.findFirst({
     where: and(eq(products.slug, slug), eq(products.active, true)),
     with: withRelations,
@@ -372,7 +376,11 @@ export function toRow(input: ProductInput) {
     shortDescription: input.shortDescription,
     description: input.description,
     priceCents: input.priceCents,
-    salePriceCents: input.salePriceCents,
+    promoPriceCents: input.salePriceCents,
+    saleStartsAt: input.saleStartsAt,
+    saleEndsAt: input.saleEndsAt,
+    // O que a loja lê: só vale dentro da janela (o relógio continua depois, em applyScheduledPromotions).
+    salePriceCents: liveSalePriceCents({ promoPriceCents: input.salePriceCents, saleStartsAt: input.saleStartsAt, saleEndsAt: input.saleEndsAt }),
     lowStockThreshold: input.lowStockThreshold,
     active: input.active,
     featured: input.featured,

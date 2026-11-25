@@ -39,6 +39,8 @@ export async function placeOrderAction(_prev: FormState, fd: FormData): Promise<
       shippingCode: formString(fd, "shippingCode") ?? "",
       expectedShippingCents: formString(fd, "expectedShippingCents"),
       addressId: formString(fd, "addressId") === "new" ? null : formString(fd, "addressId"),
+      couponCode: formString(fd, "couponCode"),
+      expectedDiscountCents: formString(fd, "expectedDiscountCents"),
       note: formString(fd, "note"),
     });
     if (!parsed.success) return { errors: zodFieldErrors(parsed.error), message: "Confira os campos destacados." };
@@ -57,6 +59,9 @@ export async function placeOrderAction(_prev: FormState, fd: FormData): Promise<
       addressId,
       shippingCode: parsed.data.shippingCode,
       expectedShippingCents: parsed.data.expectedShippingCents,
+      couponCode: parsed.data.couponCode,
+      // Sem cupom aplicado na tela, o desconto esperado é zero (qualquer desconto inesperado é avisado).
+      expectedDiscountCents: parsed.data.couponCode ? parsed.data.expectedDiscountCents : 0,
       note: parsed.data.note,
     });
     orderId = order.id;

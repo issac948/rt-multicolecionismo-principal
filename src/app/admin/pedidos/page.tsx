@@ -66,6 +66,17 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             Limpar
           </Link>
         )}
+        <Link href="/admin/pedidos/romaneio" className="btn btn-outline">
+          Romaneio (imprimir)
+        </Link>
+        {/* Planilha (CSV) com os mesmos filtros da tela. */}
+        <a
+          href={`/api/admin/pedidos/exportar${buildHref("", { q, status, atencao: attention ? "1" : undefined })}`}
+          className="btn btn-outline"
+          download
+        >
+          Exportar planilha (CSV)
+        </a>
       </form>
 
       {result.rows.length === 0 ? (

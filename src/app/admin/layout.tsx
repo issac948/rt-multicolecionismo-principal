@@ -28,8 +28,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
   if (process.env.NODE_ENV !== "test" && process.env.NEXT_PHASE !== "phase-production-build") after(() => runMaintenanceIfDue());
 
   return (
-    <div className="min-h-screen lg:grid lg:grid-cols-[15rem_1fr]">
-      <aside className="on-dark bg-night text-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto border-b-[3px] border-signal lg:border-b-0 lg:border-r-[3px]">
+    <div className="min-h-screen lg:grid lg:grid-cols-[15rem_1fr] print:block">
+      <aside className="print:hidden on-dark bg-night text-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto border-b-[3px] border-signal lg:border-b-0 lg:border-r-[3px]">
         <div className="flex flex-wrap items-center justify-between gap-3 p-4 lg:block">
           <div className="flex items-center gap-3">
             <BrandMark size={44} customSrc={fileUrl(settings.logoKey)} />
@@ -65,7 +65,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
         <main id="conteudo" className="p-4 sm:p-6 lg:p-8">
           {children}
         </main>
-        <div className="border-t border-line p-4 text-sm lg:hidden">
+        <div className="border-t border-line p-4 text-sm lg:hidden print:hidden">
           <form action={logoutAction}>
             <button type="submit" className="btn-link">
               Sair ({admin.name})

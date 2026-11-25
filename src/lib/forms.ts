@@ -1,3 +1,4 @@
+import { parseBrLocal } from "./datetime-br";
 import { parseMoneyToCents } from "./money";
 import {
   addressInputSchema,
@@ -45,6 +46,11 @@ export function parseProductForm(fd: FormData): ParsedForm<ProductInput> {
     if (salePriceCents === null) errors.salePriceCents = "Informe um preço promocional válido, por exemplo 749,90";
   }
 
+  const saleStartsAt = parseBrLocal(formString(fd, "saleStarts"));
+  if (saleStartsAt === undefined) errors.saleStartsAt = "Data de início inválida";
+  const saleEndsAt = parseBrLocal(formString(fd, "saleEnds"));
+  if (saleEndsAt === undefined) errors.saleEndsAt = "Data de fim inválida";
+
   const labels = fd.getAll("featureLabel").map(String);
   const values = fd.getAll("featureValue").map(String);
   const features = labels
@@ -63,6 +69,8 @@ export function parseProductForm(fd: FormData): ParsedForm<ProductInput> {
     description: formString(fd, "description") ?? "",
     priceCents: priceCents ?? undefined,
     salePriceCents,
+    saleStartsAt: saleStartsAt ?? null,
+    saleEndsAt: saleEndsAt ?? null,
     stock: formInt(fd, "stock"),
     lowStockThreshold: formInt(fd, "lowStockThreshold"),
     active: formBool(fd, "active"),

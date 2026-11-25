@@ -640,6 +640,25 @@ describe("painel: configurações do frete calculado", () => {
     expect(blank.errors?.shippingFlatRate).toMatch(/valor do frete/i);
   });
 
+  it("campanha: salva datas digitadas em horário de Brasília e recusa fim antes do início ou link inseguro", async () => {
+    await asAdmin();
+    const fixed = { ...base, shippingMode: "fixed", shippingFlatRate: "20,00" };
+    const ok = await saveSettingsAction(
+      {},
+      form({ ...fixed, campMode: "auto", campName: "Black Friday", campStarts: "2026-11-27T00:00", campEnds: "2026-11-30T23:59", campCtaHref: "/produtos?promocao=1" }),
+    );
+    expect(ok.ok).toBe(true);
+    const saved = (await db.select().from(settings))[0].value as { campaign: { enabled: boolean; startsAt: string; endsAt: string } };
+    expect(saved.campaign).toMatchObject({ enabled: true, startsAt: "2026-11-27T03:00:00.000Z", endsAt: "2026-12-01T02:59:00.000Z" });
+
+    const backwards = await saveSettingsAction({}, form({ ...fixed, campStarts: "2026-11-30T00:00", campEnds: "2026-11-27T00:00" }));
+    expect(backwards.errors?.campaignEndsAt).toMatch(/depois do início/);
+    const badDate = await saveSettingsAction({}, form({ ...fixed, campStarts: "amanhã" }));
+    expect(badDate.errors?.campaignStartsAt).toBeTruthy();
+    const badLink = await saveSettingsAction({}, form({ ...fixed, campCtaHref: "javascript:alert(1)" }));
+    expect(badLink.errors?.campaignCtaHref).toBeTruthy();
+  });
+
   it("'Testar frete' consulta a SuperFrete com a origem salva e mostra o resultado", async () => {
     await asAdmin();
     await saveSettings(calcSettings());

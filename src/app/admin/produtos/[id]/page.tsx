@@ -11,6 +11,9 @@ import { Alert, Badge } from "@/components/ui";
 import { UUID_RE } from "@/lib/schemas";
 import { requireAdminPage } from "@/server/auth/current-user";
 import { listCategories } from "@/server/services/categories";
+import { formatBr } from "@/lib/datetime-br";
+import { MIN_DAYS_REGULAR_PRICE, PROMO_PHASE_LABEL, promoPhase } from "@/lib/promotions";
+import { getPriceHistorySummary } from "@/server/services/promotions";
 import { getProductById } from "@/server/services/products";
 
 export const metadata: Metadata = { title: "Editar produto" };
@@ -27,6 +30,9 @@ export default async function EditProductPage({ params, searchParams }: Props) {
 
   const [product, categories, query] = await Promise.all([getProductById(id), listCategories(), searchParams]);
   if (!product) notFound();
+  const phase = promoPhase(product);
+  const history = phase === "nenhuma" ? null : await getPriceHistorySummary(product.id);
+  const historyWarn = history !== null && !history.regularPriceSettled;
 
   const created = query.criado;
 
@@ -50,6 +56,22 @@ export default async function EditProductPage({ params, searchParams }: Props) {
       {created && (
         <Alert tone="ok" className="mb-4">
           {created === "publicado" ? "Produto criado e publicado na loja." : "Produto criado como rascunho. Ele ainda não aparece na loja."}
+        </Alert>
+      )}
+
+      {phase !== "nenhuma" && (
+        <Alert tone={historyWarn ? "warn" : "info"} className="mb-4">
+          <strong>{PROMO_PHASE_LABEL[phase]}</strong>
+          {product.saleStartsAt ? ` · começa ${formatBr(product.saleStartsAt)}` : ""}
+          {product.saleEndsAt ? ` · termina ${formatBr(product.saleEndsAt)}` : ""} (horário de Brasília).
+          {historyWarn && history && (
+            <>
+              {" "}
+              Atenção: o preço normal (“de”) está registrado há {history.days} dia(s)
+              {history.historyStartedAt ? ` (o histórico de preços começou em ${formatBr(history.historyStartedAt).slice(0, 10)})` : ""}. Promoção “de/por” só
+              é honesta se o preço “de” já foi praticado antes; confira antes de divulgar (mínimo sugerido: {MIN_DAYS_REGULAR_PRICE} dias).
+            </>
+          )}
         </Alert>
       )}
 

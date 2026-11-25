@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Lock } from "lucide-react";
 import { AddressFields } from "@/components/shop/address-fields";
@@ -10,6 +10,7 @@ import { useActionForm } from "@/components/use-action-form";
 import { formatBRL } from "@/lib/money";
 import { cn, formatCep, formatPhone } from "@/lib/text";
 import { placeOrderAction } from "@/server/actions/checkout";
+import { previewCouponAction } from "@/server/actions/coupons";
 import type { FormState } from "@/server/actions/shared";
 
 export type CheckoutAddress = {
@@ -122,8 +123,39 @@ export function CheckoutForm({
   const effectiveCode = options.some((o) => o.code === shippingCode) ? shippingCode : (options[0]?.code ?? "");
   const shipping = options.find((o) => o.code === effectiveCode);
   const needsAddress = quoted ? method === "delivery" : (shipping?.requiresAddress ?? false);
-  const totalCents = subtotalCents + (shipping?.priceCents ?? 0);
-  const canSubmit = paymentReady && Boolean(shipping) && !pending;
+  // Cupom: o servidor devolve o desconto; aqui só mostramos. Ao criar o pedido, o servidor confere tudo de novo.
+  const [couponText, setCouponText] = useState("");
+  const [coupon, setCoupon] = useState<{ code: string; discountCents: number } | null>(null);
+  const [couponMessage, setCouponMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [couponPending, startCoupon] = useTransition();
+  const applyCoupon = useCallback(
+    (text: string) => {
+      const fd = new FormData();
+      fd.set("couponCode", text);
+      startCoupon(async () => {
+        const result = await previewCouponAction({}, fd);
+        if (result.ok && result.code && result.discountCents !== undefined) {
+          setCoupon({ code: result.code, discountCents: result.discountCents });
+          setCouponText(result.code);
+          setCouponMessage({ ok: true, text: result.message ?? "Cupom aplicado." });
+        } else {
+          setCoupon(null);
+          setCouponMessage({ ok: false, text: result.errors?.couponCode ?? result.message ?? "Não foi possível aplicar o cupom." });
+        }
+      });
+    },
+    [startCoupon],
+  );
+  const discountChanged = Boolean(errors.couponCode?.startsWith("O desconto mudou"));
+  useEffect(() => {
+    if (discountChanged && coupon) applyCoupon(coupon.code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discountChanged, state]);
+  const couponTyped = couponText.trim() !== "" && couponText.trim().toUpperCase() !== coupon?.code;
+  const discountCents = coupon?.discountCents ?? 0;
+
+  const totalCents = subtotalCents + (shipping?.priceCents ?? 0) - discountCents;
+  const canSubmit = paymentReady && Boolean(shipping) && !pending && !couponPending && !couponTyped;
   // Número do último passo: entrega (1) + endereço ou retirada (se houver) + envio calculado (se houver) + observação.
   const noteStep = 1 + (needsAddress || shipping ? 1 : 0) + (quoting ? 1 : 0) + 1;
 
@@ -138,6 +170,8 @@ export function CheckoutForm({
       className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start"
     >
       {shipping && <input type="hidden" name="expectedShippingCents" value={shipping.priceCents} />}
+      {coupon && <input type="hidden" name="couponCode" value={coupon.code} />}
+      {coupon && <input type="hidden" name="expectedDiscountCents" value={coupon.discountCents} />}
       {quoted && method === "pickup" && shipping && <input type="hidden" name="shippingCode" value={shipping.code} />}
       <div className="space-y-8">
         {/* 1. Entrega */}
@@ -335,6 +369,60 @@ export function CheckoutForm({
           </section>
         )}
 
+        {/* Cupom */}
+        <div className="panel">
+          <h2 className="text-2xl">Cupom de desconto (opcional)</h2>
+          <div className="mt-3 flex flex-wrap items-start gap-2">
+            <div className="min-w-0 flex-1">
+              <label className="label" htmlFor="coupon-input">
+                Código do cupom
+              </label>
+              <input
+                id="coupon-input"
+                className="input uppercase"
+                value={couponText}
+                maxLength={40}
+                autoCapitalize="characters"
+                autoComplete="off"
+                onChange={(e) => {
+                  setCouponText(e.target.value);
+                  setCouponMessage(null);
+                }}
+                onKeyDown={(e) => {
+                  // Enter aqui aplica o cupom, não envia o pedido.
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (couponText.trim()) applyCoupon(couponText);
+                  }
+                }}
+              />
+            </div>
+            <button type="button" className="btn btn-outline mt-7" disabled={couponPending || !couponText.trim()} onClick={() => applyCoupon(couponText)}>
+              {couponPending ? "Conferindo..." : "Aplicar"}
+            </button>
+            {coupon && (
+              <button
+                type="button"
+                className="btn btn-outline mt-7"
+                onClick={() => {
+                  setCoupon(null);
+                  setCouponText("");
+                  setCouponMessage(null);
+                }}
+              >
+                Remover
+              </button>
+            )}
+          </div>
+          {couponMessage && (
+            <p role="status" className={couponMessage.ok ? "mt-2 text-sm font-semibold text-ok" : "field-error"}>
+              {couponMessage.text}
+            </p>
+          )}
+          {couponTyped && !couponMessage && <p className="hint mt-2">Clique em “Aplicar” para usar o cupom, ou apague o código.</p>}
+          {errors.couponCode && !discountChanged && <p className="field-error">{errors.couponCode}</p>}
+        </div>
+
         {/* 3. Observação */}
         <div className="panel">
           <h2 className="text-2xl">{noteStep}. Observação (opcional)</h2>
@@ -365,6 +453,12 @@ export function CheckoutForm({
             <dt>Produtos</dt>
             <dd className="tabular-nums">{formatBRL(subtotalCents)}</dd>
           </div>
+          {coupon && discountCents > 0 && (
+            <div className="flex justify-between gap-4 text-ok">
+              <dt>Cupom {coupon.code}</dt>
+              <dd className="tabular-nums">− {formatBRL(discountCents)}</dd>
+            </div>
+          )}
           <div className="flex justify-between gap-4">
             <dt>{shipping?.label ?? "Frete"}</dt>
             <dd className="tabular-nums">{shipping ? (shipping.priceCents === 0 ? "Grátis" : formatBRL(shipping.priceCents)) : "—"}</dd>

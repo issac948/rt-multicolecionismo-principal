@@ -1,5 +1,6 @@
 import { and, asc, desc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import { AWAITING_PAYMENT_STATUSES, type OrderStatus } from "@/lib/constants";
+import { applyDiscountToLines } from "@/lib/coupons";
 import { effectivePriceCents, formatBRL } from "@/lib/money";
 import { escapeLike, onlyDigits } from "@/lib/text";
 import type { SessionUser } from "../auth/session";
@@ -22,7 +23,9 @@ import {
 import { AuthError, BusinessRuleError, ExternalServiceError, NotFoundError, ValidationError } from "../errors";
 import { getPaymentProvider } from "../payments";
 import { resolveShippingOption, type ShippingOption, type ShippingQuoteInput } from "../shipping";
+import { evaluateCoupon, recordRedemption } from "./coupons";
 import { reserveStock, restoreStockForOrder } from "./inventory";
+import { publicHousekeeping } from "./housekeeping";
 import { getSettings } from "./settings";
 
 export type OrderDetail = Order & { items: OrderItem[]; payments: Payment[] };
@@ -38,6 +41,10 @@ export type CreateOrderInput = {
   shippingCode: string;
   /** Frete que a pessoa viu na tela (opcional). Se o valor recalculado for diferente, o pedido NÃO é criado e ela confere o novo total. */
   expectedShippingCents?: number | null;
+  /** Código do cupom digitado (opcional). É conferido de novo aqui, no servidor, e o desconto é calculado aqui. */
+  couponCode?: string | null;
+  /** Desconto que a pessoa viu na tela (opcional). Se o desconto recalculado for diferente, o pedido NÃO é criado. */
+  expectedDiscountCents?: number | null;
   note: string | null;
 };
 
@@ -104,6 +111,8 @@ async function quoteShippingBeforeTransaction(input: CreateOrderInput): Promise<
  * Se qualquer etapa falhar, nada é gravado e o estoque não muda.
  */
 export async function createOrderFromCart(input: CreateOrderInput): Promise<Order> {
+  // Reserva vencida de outro cliente não pode fazer "faltar" a peça agora.
+  await publicHousekeeping({ force: true });
   const settings = await getSettings();
   const preQuote = await quoteShippingBeforeTransaction(input);
   const expiresAt = new Date(Date.now() + settings.payment.windowMinutes * 60 * 1000);
@@ -197,7 +206,22 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Orde
           }
         : null;
 
-    const totalCents = subtotalCents + shipping.priceCents;
+    // Cupom: conferido dentro da transação, com a linha do cupom travada (limite de usos sem corrida).
+    let discountCents = 0;
+    let appliedCoupon: Awaited<ReturnType<typeof evaluateCoupon>>["coupon"] | null = null;
+    const couponCode = input.couponCode?.trim();
+    if (couponCode) {
+      const applied = await evaluateCoupon(tx, { code: couponCode, userId: user.id, subtotalCents, lock: true });
+      appliedCoupon = applied.coupon;
+      discountCents = applied.discountCents;
+    }
+    if (input.expectedDiscountCents != null && input.expectedDiscountCents !== discountCents) {
+      throw new ValidationError({
+        couponCode: `O desconto mudou para ${formatBRL(discountCents)}. Confira o total e finalize de novo.`,
+      });
+    }
+
+    const totalCents = subtotalCents + shipping.priceCents - discountCents;
 
     const [order] = await tx
       .insert(orders)
@@ -207,7 +231,8 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Orde
         paymentStatus: "PENDENTE",
         subtotalCents,
         shippingCents: shipping.priceCents,
-        discountCents: 0,
+        discountCents,
+        couponCode: appliedCoupon?.code ?? null,
         totalCents,
         shippingMethodCode: shipping.code,
         shippingMethodLabel: shipping.label,
@@ -250,6 +275,10 @@ export async function createOrderFromCart(input: CreateOrderInput): Promise<Orde
       order.id,
     );
 
+    if (appliedCoupon) {
+      await recordRedemption(tx, { couponId: appliedCoupon.id, orderId: order.id, userId: user.id, discountCents });
+    }
+
     await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id));
     return order;
   });
@@ -287,7 +316,11 @@ export async function startPaymentForOrder(orderId: string, ownerId: string): Pr
   const session = await provider.createCheckout({
     orderId: order.id,
     orderNumber: order.number,
-    items: order.items.map((i) => ({ title: i.name, quantity: i.quantity, unitPriceCents: i.unitPriceCents })),
+    // Com cupom, o desconto é distribuído pelos itens: o provedor recebe itens + frete = total exato.
+    items: applyDiscountToLines(
+      order.items.map((i) => ({ title: i.name, quantity: i.quantity, unitPriceCents: i.unitPriceCents })),
+      order.discountCents,
+    ),
     shippingCents: order.shippingCents,
     totalCents: order.totalCents,
     payer: { name: order.customerName, email: order.customerEmail, phone: order.customerPhone },
@@ -351,9 +384,7 @@ export type AdminOrderFilters = {
   pageSize?: number;
 };
 
-export async function adminListOrders(filters: AdminOrderFilters = {}) {
-  const page = Math.max(1, Math.floor(filters.page ?? 1));
-  const pageSize = filters.pageSize ?? 20;
+function adminOrderWhere(filters: AdminOrderFilters): SQL | undefined {
   const conditions: SQL[] = [];
 
   if (filters.status && filters.status !== "ALL") conditions.push(eq(orders.status, filters.status));
@@ -368,7 +399,27 @@ export async function adminListOrders(filters: AdminOrderFilters = {}) {
     conditions.push((byNumber ? sql`(${byNumber} OR ${byText})` : byText) as SQL);
   }
 
-  const where = conditions.length ? and(...conditions) : undefined;
+  return conditions.length ? and(...conditions) : undefined;
+}
+
+/** Máximo de pedidos por exportação/romaneio (protege o servidor; filtre por status para exportar menos). */
+export const EXPORT_MAX_ORDERS = 5000;
+
+/** Pedidos (com itens) do filtro, do mais antigo para o mais novo, sem paginação. Para CSV e romaneio. */
+export async function listOrdersWithItems(filters: AdminOrderFilters = {}): Promise<{ rows: Array<Order & { items: OrderItem[] }>; truncated: boolean }> {
+  const rows = (await db.query.orders.findMany({
+    where: adminOrderWhere(filters),
+    orderBy: [asc(orders.createdAt)],
+    with: { items: true },
+    limit: EXPORT_MAX_ORDERS + 1,
+  })) as Array<Order & { items: OrderItem[] }>;
+  return { rows: rows.slice(0, EXPORT_MAX_ORDERS), truncated: rows.length > EXPORT_MAX_ORDERS };
+}
+
+export async function adminListOrders(filters: AdminOrderFilters = {}) {
+  const page = Math.max(1, Math.floor(filters.page ?? 1));
+  const pageSize = filters.pageSize ?? 20;
+  const where = adminOrderWhere(filters);
 
   const [rows, [{ total }]] = await Promise.all([
     db

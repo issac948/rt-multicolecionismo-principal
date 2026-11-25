@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { MessageCircle } from "lucide-react";
+import { CopyButton } from "@/components/admin/print-copy-buttons";
+import { addressToText } from "@/lib/address-text";
 import { AdminPageHeader, SectionPanel } from "@/components/admin/admin-ui";
 import { OrderStatusActions, RefundButton } from "@/components/admin/order-admin-actions";
 import { Alert, OrderStatusBadge, PaymentStatusBadge } from "@/components/ui";
@@ -81,6 +83,12 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 <dt>Produtos</dt>
                 <dd className="tabular-nums">{formatBRL(order.subtotalCents)}</dd>
               </div>
+              {order.discountCents > 0 && (
+                <div className="flex justify-between gap-4 text-ok">
+                  <dt>Cupom {order.couponCode ?? ""}</dt>
+                  <dd className="tabular-nums">− {formatBRL(order.discountCents)}</dd>
+                </div>
+              )}
               <div className="flex justify-between gap-4">
                 <dt>{order.shippingMethodLabel}</dt>
                 <dd className="tabular-nums">{order.shippingCents === 0 ? "Grátis" : formatBRL(order.shippingCents)}</dd>
@@ -184,6 +192,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
               {order.shippingEstimate ? ` · ${order.shippingEstimate}` : ""}
             </p>
             {address ? (
+              <>
               <address className="mt-2 text-sm not-italic leading-relaxed">
                 {address.recipientName}
                 <br />
@@ -194,6 +203,10 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
                 <br />
                 CEP {formatCep(address.cep)} · {formatPhone(address.phone)}
               </address>
+              <div className="mt-3">
+                <CopyButton text={addressToText(address)} label="Copiar endereço" />
+              </div>
+              </>
             ) : (
               <p className="mt-2 text-sm text-ink-soft">Cliente retira na loja.</p>
             )}

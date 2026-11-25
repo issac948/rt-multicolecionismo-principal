@@ -43,6 +43,20 @@
       "when": 1792707839391,
       "tag": "0005_armazenamento_e_eventos",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795426342659,
+      "tag": "0006_promocoes_e_historico_de_precos",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795465690104,
+      "tag": "0007_cupons_de_desconto",
+      "breakpoints": true
     }
   ]
 }

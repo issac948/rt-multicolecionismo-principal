@@ -111,6 +111,21 @@ export function SiteFooter({ settings }: { settings: StoreSettings }) {
                 Minha conta
               </Link>
             </li>
+            <li>
+              <Link href="/trocas-e-devolucoes" className="text-white">
+                Trocas e devoluções
+              </Link>
+            </li>
+            <li>
+              <Link href="/politica-de-privacidade" className="text-white">
+                Política de privacidade
+              </Link>
+            </li>
+            <li>
+              <Link href="/termos-de-uso" className="text-white">
+                Termos de uso
+              </Link>
+            </li>
           </ul>
         </div>
       </div>

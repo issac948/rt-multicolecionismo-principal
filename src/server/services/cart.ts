@@ -4,6 +4,7 @@ import { effectivePriceCents } from "@/lib/money";
 import { db } from "../db";
 import { cartItems, carts, productImages, products } from "../db/schema";
 import { BusinessRuleError, NotFoundError } from "../errors";
+import { publicHousekeeping } from "./housekeeping";
 
 export type CartLine = {
   itemId: string;
@@ -70,6 +71,7 @@ export async function createGuestCart(): Promise<string> {
 
 export async function getCartView(cartId: string | null): Promise<CartView> {
   if (!cartId) return EMPTY_CART;
+  await publicHousekeeping();
 
   const rows = await db
     .select({
@@ -151,6 +153,7 @@ function stockMessage(available: number, inCart: number): string {
 
 /** Adiciona ao carrinho respeitando o estoque. Lança erro com mensagem clara se não puder. */
 export async function addToCart(cartId: string, productId: string, quantity: number): Promise<{ quantity: number }> {
+  await publicHousekeeping();
   if (!Number.isInteger(quantity) || quantity < 1) throw new BusinessRuleError("Quantidade inválida.");
 
   return db.transaction(async (tx) => {
@@ -183,6 +186,11 @@ export async function addToCart(cartId: string, productId: string, quantity: num
 }
 
 /** Define a quantidade de um item do carrinho. Quantidade 0 remove o item. */
+/** Marca o carrinho como mexido agora (base dos carrinhos "ativos" e "abandonados"). */
+async function touchCart(cartId: string): Promise<void> {
+  await db.update(carts).set({ updatedAt: new Date() }).where(eq(carts.id, cartId));
+}
+
 export async function setCartItemQuantity(cartId: string, itemId: string, quantity: number): Promise<void> {
   if (!Number.isInteger(quantity) || quantity < 0) throw new BusinessRuleError("Quantidade inválida.");
 
@@ -195,6 +203,7 @@ export async function setCartItemQuantity(cartId: string, itemId: string, quanti
 
     if (quantity === 0) {
       await tx.delete(cartItems).where(eq(cartItems.id, item.id));
+      await tx.update(carts).set({ updatedAt: new Date() }).where(eq(carts.id, cartId));
       return;
     }
 
@@ -208,11 +217,13 @@ export async function setCartItemQuantity(cartId: string, itemId: string, quanti
       throw new BusinessRuleError(`Você pode comprar no máximo ${MAX_CART_LINE_QUANTITY} unidades de cada produto por pedido.`);
     }
     await tx.update(cartItems).set({ quantity }).where(eq(cartItems.id, item.id));
+    await tx.update(carts).set({ updatedAt: new Date() }).where(eq(carts.id, cartId));
   });
 }
 
 export async function removeCartItem(cartId: string, itemId: string): Promise<void> {
   await db.delete(cartItems).where(and(eq(cartItems.id, itemId), eq(cartItems.cartId, cartId)));
+  await touchCart(cartId);
 }
 
 export async function clearCart(cartId: string): Promise<void> {

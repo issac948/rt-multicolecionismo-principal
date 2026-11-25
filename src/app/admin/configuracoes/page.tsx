@@ -1,3 +1,4 @@
+import { toBrLocalInput } from "@/lib/datetime-br";
 import type { Metadata } from "next";
 import { CheckCircle2, CircleAlert } from "lucide-react";
 import { AdminPageHeader, SectionPanel } from "@/components/admin/admin-ui";
@@ -85,6 +86,15 @@ export default async function AdminSettingsPage() {
             payBoleto: settings.payment.boleto,
             payMaxInstallments: settings.payment.maxInstallments,
             payWindowMinutes: settings.payment.windowMinutes,
+            campMode: settings.campaign.enabled ? (settings.campaign.mode ?? "auto") : "off",
+            campName: settings.campaign.name,
+            campHeadline: settings.campaign.headline,
+            campTeaser: settings.campaign.teaser,
+            campStarts: toBrLocalInput(settings.campaign.startsAt),
+            campEnds: toBrLocalInput(settings.campaign.endsAt),
+            campCtaLabel: settings.campaign.ctaLabel,
+            campCtaHref: settings.campaign.ctaHref,
+            campTeaserHours: settings.campaign.teaserHours,
           }}
           providerId={provider.id}
           providerLabel={provider.label}
